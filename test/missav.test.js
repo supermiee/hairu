@@ -61,11 +61,11 @@ var FIXTURE_DETAIL = '<html><head>' +
     '<meta property="og:video:duration" content="10933">' +
     '</head><body>' +
     '<div class="text-secondary"><span>番号:</span><span>SNOS-313</span></div>' +
-    '<div class="text-secondary"><span>女优:</span><a href="/cn/actress/seito">瀬户环奈</a></div>' +
-    '<div class="text-secondary"><span>类型:</span><a href="/cn/genres/meiru">美乳</a><a href="/cn/genres/koukou">口交</a></div>' +
+    '<div class="text-secondary"><span>女优:</span><a href="/dm20/cn/actresses/seito">瀬户环奈</a></div>' +
+    '<div class="text-secondary"><span>类型:</span><a href="/dm218/cn/genres/meiru">美乳</a><a href="/dm1303/cn/genres/koukou">口交</a></div>' +
     '<div class="text-secondary"><span>发行商:</span><a href="/cn/makers/s1">S1</a></div>' +
     '<div class="text-secondary"><span>导演:</span><a href="/cn/directors/xxx">タイガー小堺</a></div>' +
-    '<script>source720 = "https:\\/\\/surrit.com\\/uuid\\/720p\\/video.m3u8";source1080 = "https:\\/\\/surrit.com\\/uuid\\/1080p\\/video.m3u8";</script>' +
+    '<script>source720 = "https:\\/\\/surrit.com\\/uuid\\/720p\\/video.m3u8\\";source1080 = "https:\\/\\/surrit.com\\/uuid\\/1080p\\/video.m3u8";</script>' +
     '</body></html>';
 
 var lastDollarUrl = '';
@@ -146,9 +146,12 @@ test('详情解析：番号/发行日期/时长/女优/类型/多清晰度', fun
     assert.strictEqual(d.releaseDate, '2026-09-04');
     assert.strictEqual(d.duration, '3:02:13', '时长格式不对: ' + d.duration);
     assert.strictEqual(d.actors.map(function (x) { return x.title; }).join(','), '瀬户环奈');
+    assert.strictEqual(d.actors[0].url, 'https://missav.ws/cn/actresses/seito', '/dmNN/ 段未清理: ' + d.actors[0].url);
     assert.ok(d.genres.length === 2, '类型数量不对: ' + d.genres.length);
+    assert.strictEqual(d.genres[0].url, 'https://missav.ws/cn/genres/meiru', '/dmNN/ 段未清理: ' + d.genres[0].url);
     assert.strictEqual(d.qualities[0].quality, '1080p', '清晰度排序不对: ' + JSON.stringify(d.qualities));
-    assert.ok(/1080p\/video\.m3u8/.test(d.mediaUrl), '主线路未取最高清晰度: ' + d.mediaUrl);
+    assert.ok(/1080p\/video\.m3u8$/.test(d.mediaUrl), '主线路未取最高清晰度: ' + d.mediaUrl);
+    d.qualities.forEach(function (q) { assert.ok(!/\\$/.test(q.url), '线路 URL 结尾残留反斜杠: ' + q.url); });
 });
 
 test('详情页渲染多线路播放与进度 id', function () {

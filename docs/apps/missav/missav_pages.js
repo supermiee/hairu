@@ -1,16 +1,17 @@
 /* MissAV 页面层（重构版）。订阅只加载本模块；内核按 ?v= 同步版本。 */
 (function () {
-    var MODULE_VERSION = '1';
+    var MODULE_VERSION = '2';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var CORE_PATH = 'hiker://files/rules/missav/missav_core.js';
     var PAGES_PATH = 'hiker://files/rules/missav/missav_pages.js';
     var CORE_URL = PUBLISH_BASE + 'apps/missav/missav_core.js?v=' + MODULE_VERSION;
     var PAGES_URL = PUBLISH_BASE + 'apps/missav/missav_pages.js?v=' + MODULE_VERSION;
 
-    function remoteModule(url, fallbackPath) {
-        try { return requirejs(url); } catch (ignore) { return $.require(fallbackPath); }
+    /* 规则回调里 requirejs 不保证存在，失败时用 $.require 拉同一个远程模块 */
+    function remoteModule(url) {
+        try { return requirejs(url); } catch (ignore) { return $.require(url); }
     }
-    function core() { return remoteModule(CORE_URL, CORE_PATH); }
+    function core() { return remoteModule(CORE_URL); }
 
     function state(key, fallback) {
         try { var value = getMyVar('missav.ui.' + key, null); return (value === null || typeof value === 'undefined' || value === '') ? fallback : value; } catch (ignore) { return fallback; }
@@ -51,8 +52,8 @@
         return $('hiker://empty#' + pageSource).rule(function (payload) {
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = source.split('@rule=')[0];
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1').renderList({ url: source, title: payload.title, searchKeyword: payload.searchKeyword }); }
-            catch (ignore) { $.require('hiker://files/rules/missav/missav_pages.js').renderList({ url: source, title: payload.title, searchKeyword: payload.searchKeyword }); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2').renderList({ url: source, title: payload.title, searchKeyword: payload.searchKeyword }); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2').renderList({ url: source, title: payload.title, searchKeyword: payload.searchKeyword }); }
         }, params);
     }
     function routeList(url, title) {
@@ -65,26 +66,26 @@
         return $('hiker://empty#' + pagedSource(url)).rule(function (payload) {
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = source.split('@rule=')[0];
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1').renderDirectory({ url: source, title: payload.title, kind: payload.kind }); }
-            catch (ignore) { $.require('hiker://files/rules/missav/missav_pages.js').renderDirectory({ url: source, title: payload.title, kind: payload.kind }); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2').renderDirectory({ url: source, title: payload.title, kind: payload.kind }); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2').renderDirectory({ url: source, title: payload.title, kind: payload.kind }); }
         }, { url: url, title: title || '目录', kind: kind });
     }
     function routeDetail(item) {
         return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1').renderDetail(payload); }
-            catch (ignore) { $.require('hiker://files/rules/missav/missav_pages.js').renderDetail(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2').renderDetail(payload); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2').renderDetail(payload); }
         }, { url: item.url, title: item.title || '', image: item.image || '' });
     }
     function routePage(name, title) {
         return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1')[payload.name](); }
-            catch (ignore) { $.require('hiker://files/rules/missav/missav_pages.js')[payload.name](); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2')[payload.name](); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2')[payload.name](); }
         }, { name: name, title: title || '' });
     }
     function routeVerification() {
         return $('hiker://empty').rule(function () {
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1').renderVerification(); }
-            catch (ignore) { $.require('hiker://files/rules/missav/missav_pages.js').renderVerification(); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2').renderVerification(); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=2').renderVerification(); }
         }, {});
     }
 
@@ -110,6 +111,13 @@
         ];
         if (error && /验证/.test(message)) cards.push({ title: '验证并同步', url: routeVerification(), col_type: 'text_center_1' });
         cards.push({ title: '打开原网页', url: 'web://' + url, col_type: 'text_center_1' });
+        return cards;
+    }
+    /* 渲染出错时把原因显示出来，避免整页空白无法定位 */
+    function renderError(label, error, params) {
+        var message = String((error && error.message) || error || '未知错误');
+        var cards = [{ title: label + '渲染失败', desc: message, col_type: 'text_center_1' }];
+        if (params && params.url) cards.push({ title: '打开原网页', url: 'web://' + params.url, col_type: 'text_center_1' });
         return cards;
     }
 
@@ -206,6 +214,7 @@
     /* ---------- 详情 ---------- */
     function renderDetail(params) {
         params = params || {};
+        try {
         var app = core();
         var page = app.fetchCached(params.url, { marker: 'og:title' }, 1800);
         if (!page.ok) { setResult(failure(page.error, params.url, routeDetail(params))); return; }
@@ -245,6 +254,7 @@
         linkRow(result, '標籤', detail.labels);
         if (detail.recommendations && detail.recommendations.length) section(result, '猜你喜歡', detail.recommendations);
         setResult(result);
+        } catch (error) { setResult(renderError('详情', error, params)); }
     }
     function linkRow(result, title, links) {
         if (!links || !links.length) return;
@@ -254,8 +264,8 @@
     function toggleRoute(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=1'); }
-            catch (ignore) { app = $.require('hiker://files/rules/missav/missav_core.js'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=2'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=2'); }
             var added = app.toggleFavorite(payload);
             refreshPage(false);
             return 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -281,7 +291,7 @@
         var options = [['highest', '最高可用'], ['1080', '1080p'], ['720', '720p'], ['540', '540p'], ['480', '480p'], ['360', '360p']];
         var result = [{ title: '播放设置', desc: '默认清晰度：' + (selected === 'highest' ? '最高可用' : selected + 'p') + '\n若源站不提供所选画质，将自动选择最接近的可用画质。', col_type: 'long_text', extra: { textSize: 17, lineVisible: false } }];
         for (var i = 0; i < options.length; i++) result.push({ title: (selected === options[i][0] ? '✓ ' : '') + options[i][1], url: $('hiker://empty').lazyRule(function (value) {
-            var app; try { app = requirejs('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=1'); } catch (ignore) { app = $.require('hiker://files/rules/missav/missav_core.js'); }
+            var app; try { app = requirejs('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=2'); } catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=2'); }
             app.setPlayQuality(value); refreshPage(false); return 'toast://已设置';
         }, options[i][0]), col_type: 'text_center_1' });
         setResult(result);
@@ -293,7 +303,7 @@
             { title: '设置与诊断', desc: '版本 ' + app.config.version, col_type: 'long_text', extra: { textSize: 19, lineVisible: false } },
             { title: '播放设置：' + (app.getPlayQuality() === 'highest' ? '最高可用' : app.getPlayQuality() + 'p'), url: routePage('renderPlaySettings', '播放设置'), col_type: 'text_center_1' },
             { title: '清除缓存与本地数据', url: $('hiker://empty').lazyRule(function () {
-                try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=1').clearPageCache(); } catch (ignore) { $.require('hiker://files/rules/missav/missav_core.js').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=2').clearPageCache(); } catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=2').clearPageCache(); }
                 return 'toast://已清除缓存';
             }), col_type: 'text_center_1' }
         ]);
@@ -309,7 +319,7 @@
             { title: '打開驗證網頁', url: source, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: source, canBack: true } },
             { title: '第二步：驗證成功後，點此返回並刷新', url: $('hiker://empty').lazyRule(function () {
                 try { putVar('missav.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=1').clearPageCache(); } catch (ignore) { $.require('hiker://files/rules/missav/missav_core.js').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=2').clearPageCache(); } catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=2').clearPageCache(); }
                 back(true);
                 return 'toast://已記錄驗證狀態，請刷新';
             }), col_type: 'text_center_1' },

@@ -190,6 +190,8 @@
         var tag = re.exec(String(html || ''));
         return tag ? text(attr(tag[0], 'content')) : '';
     }
+    /* 新版链接会带服务端轮换的 /dmNN/ 段，去掉后更稳定 */
+    function stripDm(url) { return String(url || '').replace(/\/dm\d+\//i, '/'); }
     function unique(items, key) {
         var seen = {}, result = [];
         for (var i = 0; i < items.length; i++) { var value = items[i]; if (value && !seen[value[key]]) { seen[value[key]] = true; result.push(value); } }
@@ -210,7 +212,7 @@
             var image = /<img\b[^>]*data-src=["']([^"']+)["']/i.exec(block) || /<img\b[^>]*src=["']([^"']+)["']/i.exec(block);
             var title = /class=["'][^"']*\btruncate\b[^"']*["'][^>]*>\s*<a\b[^>]*>([\s\S]*?)<\/a>/i.exec(block) || /class=["'][^"']*text-secondary[^"']*["'][^>]*>([\s\S]*?)<\/a>/i.exec(block);
             var badge = /absolute[^"']*bottom-1[^"']*left-1[^"']*[^>]*>([\s\S]*?)<\//i.exec(block);
-            var url = absolute(href && href[1], baseUrl).split('#')[0], name = text(title && title[1]);
+            var url = stripDm(absolute(href && href[1], baseUrl).split('#')[0]), name = text(title && title[1]);
             if (url && name && /\/cn\//i.test(url) && !/\/undefined/i.test(url)) cards.push({ url: url, title: name, image: absolute(image && image[1], baseUrl), duration: cardDuration(block), badge: text(badge && badge[1]) });
         }
         cards = unique(cards, 'url');
@@ -227,7 +229,7 @@
         var result = [];
         for (var i = 0; i < anchors.length; i++) {
             var href = /href=["']([^"']+)["']/i.exec(anchors[i]);
-            var url = absolute(href && href[1], baseUrl).split('#')[0];
+            var url = stripDm(absolute(href && href[1], baseUrl).split('#')[0]);
             if (!url || !pathPattern.test(url) || (exclude && exclude.test(url))) continue;
             var label = text(anchors[i]);
             if (!label) continue;
@@ -257,7 +259,7 @@
         if (!match) return [];
         var anchors = match[1].match(/<a\b[^>]*href=["'][^"']+["'][^>]*>[\s\S]*?<\/a>/ig) || [], result = [];
         for (var i = 0; i < anchors.length; i++) {
-            var href = /href=["']([^"']+)["']/i.exec(anchors[i]), url = absolute(href && href[1], baseUrl), title = text(anchors[i]);
+            var href = /href=["']([^"']+)["']/i.exec(anchors[i]), url = stripDm(absolute(href && href[1], baseUrl)), title = text(anchors[i]);
             if (url && title) result.push({ title: title, url: url });
         }
         return unique(result, 'url');
@@ -296,7 +298,8 @@
         var source = String(html || ''), bodies = [source], scripts = source.match(/<script\b[^>]*>[\s\S]*?<\/script>/ig) || [], result = [], seen = {};
         for (var i = 0; i < scripts.length; i++) if (scripts[i].indexOf('eval(function') >= 0 && scripts[i].indexOf('m3u8') >= 0) bodies.push(unpackPacker(scripts[i]));
         function add(url, quality) {
-            url = String(url || '').replace(/\\\//g, '/').replace(/[),;]+$/, '');
+            /* 解包后的 URL 常以 \ 结尾，必须连同 ),; 一起去掉，否则播放器打不开 */
+            url = String(url || '').replace(/\\\//g, '/').replace(/[\\),;]+$/, '');
             if (!/^https?:\/\//i.test(url) || seen[url]) return;
             seen[url] = true;
             var number = Number(quality || 0), inferred = /(2160|1440|1080|720|540|480|360|240)p?/i.exec(url);
