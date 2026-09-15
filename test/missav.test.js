@@ -56,6 +56,7 @@ var FIXTURE_LIST = '<html><head><meta property="og:title" content="最近更新"
 
 var FIXTURE_DETAIL = '<html><head>' +
     '<meta property="og:title" content="SNOS-313 标题一 - 濑户康娜">' +
+    '<meta property="og:description" content="公司社长有种特殊的性癖，他喜欢妻子被其他男人拥抱。">' +
     '<meta property="og:image" content="https://fourhoi.com/snos-313/cover-n.jpg">' +
     '<meta property="og:video:release_date" content="2026-09-04">' +
     '<meta property="og:video:duration" content="10933">' +
@@ -163,6 +164,12 @@ test('详情页渲染多线路播放与进度 id', function () {
     assert.ok(payload.urls.length >= 2, '应有多条线路');
     assert.strictEqual(payload.headers.length, payload.urls.length, 'headers 数量应与线路一致');
     assert.strictEqual(playCard.extra.id, 'https://missav.ws/cn/snos-313', '缺少播放进度 id');
+    assert.ok(/剧情简介/.test(JSON.stringify(lastResult)), '详情页未展示剧情简介');
+});
+
+test('剧情简介缺失 og 时回退到 .line-clamp-2 摘要块', function () {
+    var d = core.parseDetail('<html><body><div class="mb-1 text-secondary break-all line-clamp-2">回退摘要文本内容</div></body></html>', 'https://missav.ws/cn/x-1');
+    assert.strictEqual(d.description, '回退摘要文本内容', '回退失败: ' + d.description);
 });
 
 test('瞬时网络错误自动重试一次', function () {

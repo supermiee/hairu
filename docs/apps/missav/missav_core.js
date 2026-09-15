@@ -322,6 +322,13 @@
         return result;
     }
     function parseM3u8(html) { var streams = parseQualities(html); return streams.length ? streams[0].url : ''; }
+    /* 剧情简介：优先 og/meta description，缺失时回退到 .line-clamp-2 摘要块 */
+    function parseDescription(html) {
+        var value = meta(html, 'og:description') || meta(html, 'description') || '';
+        if (value) return value;
+        var match = /<div[^>]*class=["'][^"']*\bline-clamp-2\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i.exec(String(html || ''));
+        return match ? text(match[1]) : '';
+    }
     function parseDetail(html, baseUrl) {
         var chineseTitle = meta(html, 'og:title') || meta(html, 'twitter:title');
         return {
@@ -329,7 +336,7 @@
             /* The /cn page exposes the localized title through og:title; keep the Japanese field separately. */
             title: chineseTitle || field(html, '标题'),
             image: meta(html, 'og:image'),
-            description: meta(html, 'og:description'),
+            description: parseDescription(html),
             releaseDate: field(html, '发行日期') || meta(html, 'og:video:release_date'),
             duration: duration(meta(html, 'og:video:duration')),
             code: field(html, '番号'), originalTitle: field(html, '标题'),
