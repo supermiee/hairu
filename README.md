@@ -11,13 +11,14 @@
 | 应用 | 状态 | 入口 |
 | --- | --- | --- |
 | Jable | 已重构 | `docs/apps/jable/jable_pages.js` |
-| MissAV | 待迁移 | — |
+| MissAV | 已重构 | `docs/apps/missav/missav_pages.js` |
 | Hanime1 | 待迁移 | — |
 
 ## 开发
 
 ```
 node test/jable.test.js
+node test/missav.test.js
 ```
 
 细节见 `AGENTS.md`。

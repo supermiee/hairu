@@ -12,5 +12,19 @@
     "detail_find_rule": "",
     "preRule": "",
     "ua": "PC_UA"
+  },
+  {
+    "title": "MissAV",
+    "author": "supermiee",
+    "version": 1,
+    "group": "开发测试",
+    "type": "video",
+    "url": "https://missav.ws/cn/new",
+    "search_url": "https://missav.ws/cn/search/**",
+    "find_rule": "js:var pages;try{pages=requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1');}catch(e){pages=$.require('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1');}pages.renderHome();",
+    "searchFind": "js:var pages;try{pages=requirejs('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1');}catch(e){pages=$.require('https://supermiee.github.io/hairu/apps/missav/missav_pages.js?v=1');}pages.renderSearch(MY_URL);",
+    "detail_find_rule": "",
+    "preRule": "",
+    "ua": "PC_UA"
   }
 ]
