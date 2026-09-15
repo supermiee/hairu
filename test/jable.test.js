@@ -181,6 +181,21 @@ test('播放头包含 Referer/Origin，并在有 cookie 时回放', function () 
     assert.strictEqual(headers.Cookie, 'cf_clearance=tok');
 });
 
+test('瞬时网络错误（SSL 连接被重置）自动重试一次', function () {
+    store = {}; MY_PAGE_VALUE = 1;
+    var calls = 0, old = global.fetchPC;
+    global.fetchPC = function (url, opts) {
+        calls++;
+        if (calls === 1) throw new Error('javax.net.ssl.SSLHandshakeException: Connection closed by peer');
+        return old(url, opts);
+    };
+    try {
+        pages.renderList({ url: 'https://jable.tv/latest-updates/', title: 'L' });
+        assert.ok(calls >= 2, '未触发重试');
+        assert.ok(titles(lastResult).join('|').indexOf('ABC-001') >= 0, '重试后仍未成功渲染');
+    } finally { global.fetchPC = old; }
+});
+
 test('订阅 JSON 版本与 ?v= 字面量一致', function () {
     var file = path.join(ROOT, 'docs', 'subscription.json');
     var entries = JSON.parse(fs.readFileSync(file, 'utf8'));

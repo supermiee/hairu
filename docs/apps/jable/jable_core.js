@@ -4,7 +4,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '1.0.15',
+        version: '1.1.0',
         sources: ['https://jable.tv', 'https://fs1.app'],
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
         /* 验证用移动端 UA + WebView 通道标记（与内嵌验证页同内核同 CookieManager） */
@@ -148,6 +148,15 @@
         } catch (ignore) {}
     }
 
+    /* TLS/连接被重置（SSLHandshakeException: Connection closed by peer）等瞬时错误重试一次 */
+    function fetchText(url, options) {
+        var lastError = null;
+        for (var attempt = 0; attempt < 2; attempt++) {
+            try { return fetchPC(url, options); } catch (error) { lastError = error; }
+        }
+        throw lastError;
+    }
+
     function request(url, options) {
         options = options || {};
         var target = normalizeUrl(url);
@@ -164,7 +173,7 @@
             var candidate = replaceHost(target, CONFIG.sources[i]);
             var started = now();
             try {
-                var raw = fetchPC(candidate, {
+                var raw = fetchText(candidate, {
                     headers: {
                         'User-Agent': CONFIG.userAgent,
                         'Referer': CONFIG.sources[i] + '/'

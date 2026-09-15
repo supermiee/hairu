@@ -2,13 +2,13 @@
   {
     "title": "Jable",
     "author": "supermiee",
-    "version": 1,
+    "version": 2,
     "group": "开发测试",
     "type": "video",
     "url": "https://jable.tv/latest-updates/",
     "search_url": "https://jable.tv/search/**/fypage/",
-    "find_rule": "js:var pages=requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=1');pages.renderHome();",
-    "searchFind": "js:var pages=requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=1');pages.renderSearch(MY_URL);",
+    "find_rule": "js:var pages;try{pages=requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=2');}catch(e){pages=$.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=2');}pages.renderHome();",
+    "searchFind": "js:var pages;try{pages=requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=2');}catch(e){pages=$.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=2');}pages.renderSearch(MY_URL);",
     "detail_find_rule": "",
     "preRule": "",
     "ua": "PC_UA"
