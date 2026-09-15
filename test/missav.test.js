@@ -141,6 +141,19 @@ test('列表页渲染卡片', function () {
     assert.ok(t.indexOf('SNOS-313') >= 0 && t.indexOf('MBDD-2134') >= 0, '列表卡片缺失');
 });
 
+test('第 2 页不重复标题，且与第 1 页重复的卡片被去掉（Hiker 是追加）', function () {
+    store = {}; MY_PAGE_VALUE = 1;
+    // 第 1 页记录已见
+    pages.renderList({ url: 'https://missav.ws/cn/new', title: '翻页测试' });
+    assert.ok(titles(lastResult).indexOf('翻页测试') >= 0, '第 1 页应输出标题');
+    // 第 2 页若返回同样的内容，标题不再输出、卡片全部去重
+    MY_PAGE_VALUE = 2;
+    pages.renderList({ url: 'https://missav.ws/cn/new?page=2', title: '翻页测试' });
+    MY_PAGE_VALUE = 1;
+    assert.strictEqual(lastResult.filter(function (c) { return c.title === '翻页测试'; }).length, 0, '第 2 页重复输出了标题');
+    assert.strictEqual(lastResult.filter(function (c) { return c.col_type === 'movie_2'; }).length, 0, '重复卡片未被去重');
+});
+
 test('详情解析：番号/发行日期/时长/女优/类型/多清晰度', function () {
     var d = core.parseDetail(FIXTURE_DETAIL, 'https://missav.ws/cn/snos-313');
     assert.strictEqual(d.code, 'SNOS-313');

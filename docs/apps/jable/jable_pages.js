@@ -1,6 +1,6 @@
 /* Jable 页面层（重构版）。订阅只加载本模块；核心内核按 ?v= 同步版本。 */
 (function () {
-    var MODULE_VERSION = '4';
+    var MODULE_VERSION = '5';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var CORE_PATH = 'hiker://files/rules/jable/jable_core.js';
     var PAGES_PATH = 'hiker://files/rules/jable/jable_pages.js';
@@ -87,8 +87,8 @@
         return $('hiker://empty#' + pageSource).rule(function (payload) {
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = source.split('@rule=')[0];
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderList({ url: source, title: payload.title, listKind: payload.listKind, selectedSort: payload.selectedSort, searchKeyword: payload.searchKeyword, searchSort: payload.searchSort }); }
-            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderList({ url: source, title: payload.title, listKind: payload.listKind, selectedSort: payload.selectedSort, searchKeyword: payload.searchKeyword, searchSort: payload.searchSort }); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderList({ url: source, title: payload.title, listKind: payload.listKind, selectedSort: payload.selectedSort, searchKeyword: payload.searchKeyword, searchSort: payload.searchSort }); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderList({ url: source, title: payload.title, listKind: payload.listKind, selectedSort: payload.selectedSort, searchKeyword: payload.searchKeyword, searchSort: payload.searchSort }); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -101,38 +101,57 @@
         return $('hiker://empty#' + pagedSource(url)).rule(function (payload) {
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = source.split('@rule=')[0];
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderModels({ url: source, title: payload.title }); }
-            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderModels({ url: source, title: payload.title }); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderModels({ url: source, title: payload.title }); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderModels({ url: source, title: payload.title }); }
         }, { url: url, title: title || '女優' });
     }
     function routeDetail(item) {
         return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderDetail(payload); }
-            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderDetail(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderDetail(payload); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderDetail(payload); }
         }, { url: item.url, title: item.title || '', image: item.image || '' });
     }
     function routePage(name, title) {
         return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4')[payload.name](); }
-            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4')[payload.name](); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5')[payload.name](); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5')[payload.name](); }
         }, { name: name, title: title || '' });
     }
     function routeVerification() {
         return $('hiker://empty').rule(function () {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderVerification(); }
-            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderVerification(); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderVerification(); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderVerification(); }
         }, {});
     }
     function routeTaxonomyPage() {
         return $('hiker://empty').rule(function () {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderTaxonomy(); }
-            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=4').renderTaxonomy(); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderTaxonomy(); }
+            catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_pages.js?v=5').renderTaxonomy(); }
         }, {});
     }
 
     /* ---------- 通用渲染单元 ---------- */
     function randomColor() {
         return '#' + ('00000' + (Math.random() * 0x1000000 << 0).toString(16)).substr(-6);
+    }
+    /* Hiker 翻页会「追加」下一页，时间序列表边界会漂移；用已见 URL 去重 */
+    function dedupeAcrossPages(scopeKey, pageNumber, items) {
+        var key = 'jable.ui.seen.' + scopeKey;
+        var seen = [];
+        try { seen = getMyVar(key, []) || []; } catch (ignoreSeen) { seen = []; }
+        if (!(seen instanceof Array)) seen = [];
+        if (pageNumber <= 1) seen = [];
+        var map = {};
+        for (var i = 0; i < seen.length; i++) map[seen[i]] = 1;
+        var fresh = [];
+        for (var j = 0; j < items.length; j++) {
+            if (!items[j].url || map[items[j].url]) continue;
+            map[items[j].url] = 1;
+            seen.push(items[j].url);
+            fresh.push(items[j]);
+        }
+        try { putMyVar(key, seen.slice(-800)); } catch (ignoreSave) {}
+        return fresh;
     }
     function card(item) {
         var desc = [];
@@ -266,6 +285,7 @@
 
         var result = [];
         var items = app.parseCards(page.html, page.url);
+        items = dedupeAcrossPages(params.title || url, pageNumber, items);
         var total = app.parseTotal(page.html);
         if (pageNumber <= 1) {
             result.push({ title: params.title || '影片列表', desc: total ? (total + ' 部影片') : '', col_type: 'long_text', extra: { textSize: 19, lineVisible: false } });
@@ -370,8 +390,8 @@
     function emptyRuleToggle(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=4'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=4'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5'); }
             var added = app.toggleFavorite(payload);
             refreshPage(false);
             return 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -439,7 +459,7 @@
             { title: '搜索歷史', desc: app.listValue('searches', []).join(' · ') || '暫無', col_type: 'text_1' },
             { title: '查看診斷日誌', url: routePage('renderDiagnostics', '診斷日誌'), col_type: 'text_center_1' },
             { title: '清除緩存與本地數據', url: $('hiker://empty').lazyRule(function () {
-                try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=4').clearLocal(); } catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=4').clearLocal(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5').clearLocal(); } catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5').clearLocal(); }
                 return 'toast://已清除';
             }), col_type: 'text_center_1' }
         ]);
@@ -455,7 +475,7 @@
                 title: (item.id === selected ? '✓ ' : '') + item.title,
                 url: $('hiker://empty').lazyRule(function (languageId) {
                     var app;
-                    try { app = requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=4'); } catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=4'); }
+                    try { app = requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5'); } catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5'); }
                     app.setLanguage(languageId);
                     refreshPage();
                     return 'toast://語言已切換';
@@ -483,7 +503,7 @@
             { title: '打開驗證網頁', url: source, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: source, canBack: true } },
             { title: '第二步：驗證成功後，點此返回並刷新', url: $('hiker://empty').lazyRule(function () {
                 try { putVar('jable.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=4').clearPageCache(); } catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=4').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5').clearPageCache(); } catch (ignore) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5').clearPageCache(); }
                 back(true);
                 return 'toast://已記錄驗證狀態，請刷新';
             }), col_type: 'text_center_1' },
