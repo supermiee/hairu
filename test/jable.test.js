@@ -74,9 +74,14 @@ var FIXTURE_LIST = '<html><head><meta property="og:title" content="列表"></hea
     '<div class="pagination"><a href="/latest-updates/2/">02</a></div>共 120 部影片</body></html>';
 var FIXTURE_DETAIL = '<html><head><meta property="og:title" content="ABC-001 標題一"><meta property="og:image" content="https://img.jable.tv/abc-001.jpg">' +
     '<meta name="description" content="免費高清AV在線看，無需下載看到飽。"></head><body>' +
-    '<a href="/models/%E4%B8%89%E4%B8%8A">三上悠亜</a><a href="/categories/bdsm/">主奴調教</a>' +
+    /* 整站导航里也有大量 tags/categories，不能被当成影片标签 */
+    '<nav class="app-nav"><a href="https://jable.tv/tags/knee-socks/">過膝襪</a><a href="https://jable.tv/categories/sportswear/">運動裝</a></nav>' +
+    '<section class="video-info pb-3"><h4>ABC-001 標題一</h4>' +
+    '<div class="models"><a class="model" href="https://jable.tv/models/abc123/"><span data-original-title="三上悠亜">三</span></a></div>' +
     '<span class="inactive-color">上市於 2026-09-10</span>' +
-    '<button class="btn btn-action fav mr-2"><span class="count">233</span></button>' +
+    '<div class="my-3"><button class="btn btn-action fav mr-2"><span class="count">233</span></button></div>' +
+    '<div class="text-center"><h5 class="tags h6-md"><a class="cat" href="https://jable.tv/categories/chinese-subtitle/">中文字幕</a> <a href="https://jable.tv/tags/big-tits/">巨乳</a> <a href="https://jable.tv/tags/creampie/">中出</a></h5></div>' +
+    '</section>' +
     '<script>var hlsUrl="https:\\/\\/cdn.example.com\\/abc-001.m3u8";</script></body></html>';
 
 /* 记录 $() 收到的链接，用于断言搜索翻页形式 */
@@ -159,6 +164,15 @@ test('详情页解析标题/媒体/收藏数并使用播放头与进度 id', fun
     assert.strictEqual(payload.headers[0].Referer, 'https://jable.tv/videos/abc-001/', '播放 Referer 缺失');
     assert.strictEqual(playCard.extra.id, 'https://jable.tv/videos/abc-001/', '缺少播放进度 id');
     assert.ok(/233/.test(JSON.stringify(lastResult)), '未解析收藏数');
+});
+
+test('详情标签只取影片信息区，排除整站导航', function () {
+    var d = core.parseDetail({ html: FIXTURE_DETAIL, url: 'https://jable.tv/videos/abc-001/' });
+    var tags = d.tags.map(function (x) { return x.title; }).join(',');
+    assert.ok(tags.indexOf('巨乳') >= 0 && tags.indexOf('中出') >= 0 && tags.indexOf('中文字幕') >= 0, '影片标签缺失: ' + tags);
+    assert.ok(tags.indexOf('過膝襪') < 0 && tags.indexOf('運動裝') < 0, '混入导航标签: ' + tags);
+    var actors = d.actors.map(function (x) { return x.title; }).join(',');
+    assert.strictEqual(actors, '三上悠亜', '演员解析错误: ' + actors);
 });
 
 test('通用简介文案被过滤为空', function () {

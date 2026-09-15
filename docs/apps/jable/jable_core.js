@@ -4,7 +4,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '1.1.0',
+        version: '1.1.1',
         sources: ['https://jable.tv', 'https://fs1.app'],
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
         /* 验证用移动端 UA + WebView 通道标记（与内嵌验证页同内核同 CookieManager） */
@@ -414,11 +414,32 @@
         return headers;
     }
 
+    /* 详情信息区：整站导航里也有大量 /tags/、/categories/ 链接，必须限定在 video-info 内 */
+    function videoInfoHtml(html) {
+        var match = /<section[^>]*class\s*=\s*["'][^"']*\bvideo-info\b[^"']*["'][\s\S]*?(?=<section\b|$)/i.exec(String(html || ''));
+        return match ? match[0] : '';
+    }
+    function anchorsWith(scopeHtml, hrefPattern, baseUrl) {
+        var anchors = String(scopeHtml || '').match(/<a\b[^>]*>[\s\S]*?<\/a>/ig) || [];
+        var out = [], seen = {};
+        for (var i = 0; i < anchors.length; i++) {
+            var href = attr(anchors[i], 'href');
+            var url = absolute(href, baseUrl);
+            if (!url || !hrefPattern.test(url) || seen[url]) continue;
+            seen[url] = true;
+            var label = attr(anchors[i], 'data-original-title') || attr(anchors[i], 'title') || text(anchors[i]);
+            if (label) out.push({ title: label, url: url });
+        }
+        return out;
+    }
+
     function parseDetail(page) {
         var html = page.html;
         var pageText = text(html);
-        var actors = findHref(html, /\/models\/[^/?#]+/i, page.url);
-        var tags = findHref(html, /\/(?:categories|tags)\/[^/?#]+/i, page.url);
+        var info = videoInfoHtml(html);
+        var actors = info ? anchorsWith(info, /\/models\/[^/?#]+/i, page.url) : findHref(html, /\/models\/[^/?#]+/i, page.url);
+        var tagsBlock = (info.match(/<h5[^>]*class\s*=\s*["'][^"']*\btags\b[^"']*["'][\s\S]*?<\/h5>/i) || [''])[0];
+        var tags = tagsBlock ? anchorsWith(tagsBlock, /\/(?:categories|tags)\/[^/?#]+/i, page.url) : findHref(html, /\/(?:categories|tags)\/[^/?#]+/i, page.url);
         var comments = [];
         var commentBlocks = [];
         var relativeTime = (pageText.match(/(?:^|\s)(\d+\s*(?:分鐘|分钟|小時|小时|天|週|周)前|剛剛|刚刚)(?=\s|$)/) || [])[1] || '';
@@ -435,7 +456,8 @@
             favoriteCount = (afterPublished.match(/^\s*([\d\s,]+)(?=\s|$)/) || [])[1] || '';
         }
         if (!favoriteCount) {
-            try { favoriteCount = text(pdfh(html, 'body&&.btn-action.fav&&.count&&Text')); } catch (ignoreFav) {}
+            var favMatch = /class\s*=\s*["'][^"']*\bbtn-action\b[^"']*\bfav\b[^"']*["'][\s\S]{0,300}?class\s*=\s*["'][^"']*\bcount\b[^"']*["'][^>]*>([\d,\s]+)/i.exec(info || html);
+            if (favMatch) favoriteCount = text(favMatch[1]);
         }
         try { commentBlocks = pdfa(html, 'body&&.comment,body&&.comment-item,body&&li[class*=comment]'); } catch (ignore) {}
         for (var i = 0; i < commentBlocks.length; i++) {
