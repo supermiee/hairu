@@ -16,7 +16,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '1.3.0',
+        version: '1.4.0',
         source: 'https://www.av01.media',
         localePath: '/cn',
         lang: 'cn',
@@ -30,7 +30,7 @@
         webviewFlagKey: 'av01.webviewMode',
         timeout: 8000,
         cachePrefix: 'av01.',
-        limits: { homeSection: 6, homeMakers: 2, page: 24, directory: 100, history: 200 }
+        limits: { homeSection: 6, homeMakers: 2, page: 24, directory: 100, history: 200, abrMaxHeight: 720 }
     };
 
     function now() { return new Date().getTime(); }
@@ -388,26 +388,44 @@
     /* 把服务端 master.m3u8 改写成「每个 variant 都自带 access_token 的绝对地址」的 master。
        站点前端就是这么做的（index-*.js 里把 master 换成 base64 data URI 交给播放器），
        目的是让播放器自己做多码率自适应（ABR）；我们改写后落成本地 .m3u8 播放，效果等价。
-       直接给 3 条单码率清单会跳过 ABR，默认吃满 1080P，弱网就卡。 */
-    function buildMaster(text, id, accessToken) {
-        var lines = String(text || '').split(/\r?\n/), out = [];
+       直接给 3 条单码率清单会跳过 ABR，默认吃满 1080P，弱网就卡。
+       maxHeight：丢弃高于该高度的 variant（站点自己的 Lce() 也是这么按上限裁的），
+       避免 ABR 在链路撑不住的档位上反复试探（表现就是网速 0↔几兆来回跳）。 */
+    function buildMaster(text, id, accessToken, maxHeight) {
+        var lines = String(text || '').split(/\r?\n/), out = [], pending = null;
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i], trimmed = line.replace(/^\s+|\s+$/g, '');
-            if (!trimmed) { out.push(line); continue; }
+            if (!trimmed) continue;
+            if (/^#EXT-X-STREAM-INF/i.test(trimmed)) {
+                var res = /RESOLUTION=\d+x(\d+)/i.exec(trimmed);
+                pending = { tag: trimmed, height: res ? Number(res[1]) : 0 };
+                continue;
+            }
             if (/#EXT-X-I-FRAME-STREAM-INF/i.test(trimmed)) {
+                var ires = /RESOLUTION=\d+x(\d+)/i.exec(trimmed);
+                if (maxHeight && ires && Number(ires[1]) > maxHeight) continue;
                 out.push(trimmed.replace(/URI="([^"]+)"/i, function (all, uri) { return 'URI="' + manifestUrl(id, uri, accessToken) + '"'; }));
                 continue;
             }
-            if (trimmed.charAt(0) === '#') { out.push(line); continue; }
+            if (trimmed.charAt(0) === '#') { out.push(trimmed); continue; }
+            if (pending !== null) {
+                if (!(maxHeight && pending.height && pending.height > maxHeight)) {
+                    out.push(pending.tag);
+                    out.push(manifestUrl(id, trimmed, accessToken));
+                }
+                pending = null;
+                continue;
+            }
             out.push(manifestUrl(id, trimmed, accessToken));
         }
         return out.join('\n');
     }
     /* master 拉取失败时按已知的 sv1/sv2/sv3 兜底拼一份 */
-    function synthMaster(variants, id, accessToken) {
+    function synthMaster(variants, id, accessToken, maxHeight) {
         var lines = ['#EXTM3U', '#EXT-X-VERSION:3'];
         for (var i = 0; i < variants.length; i++) {
             if (!variants[i].height) continue;
+            if (maxHeight && variants[i].height > maxHeight) continue;
             lines.push('#EXT-X-STREAM-INF:BANDWIDTH=' + (variants[i].bandwidth || variants[i].height * 4000) + ',RESOLUTION=' + Math.round(variants[i].height * 16 / 9) + 'x' + variants[i].height);
             lines.push(manifestUrl(id, variants[i].file, accessToken));
         }
@@ -437,8 +455,8 @@
         if (!variants.length) variants = [{ height: 360, bandwidth: 0, file: 'index90-sv1-v1-a1.m3u8?ro=0' }, { height: 720, bandwidth: 0, file: 'index90-sv2-v1-a1.m3u8' }, { height: 1080, bandwidth: 0, file: 'index90-sv3-v1-a1.m3u8' }];
         variants = variants.sort(function (a, b) { return (b.height || b.bandwidth) - (a.height || a.bandwidth); });
 
-        var masterText = master.ok ? buildMaster(master.text, id, accessToken) : '';
-        if (!masterText) masterText = synthMaster(variants, id, accessToken);
+        var masterText = master.ok ? buildMaster(master.text, id, accessToken, CONFIG.limits.abrMaxHeight) : '';
+        if (!masterText) masterText = synthMaster(variants, id, accessToken, CONFIG.limits.abrMaxHeight);
         var local = localMaster(id, masterText);
 
         var urls = [], names = [];
@@ -510,7 +528,7 @@
                 lines.push('⑧ 带宽结论：约 ' + best + ' KB/s → ' + (best >= 400 ? '够 1080P' : (best >= 200 ? '最多 720P' : (best >= 60 ? '只能 360P' : '连 360P 都勉强'))));
             }
         }
-        var local = localMaster(id, buildMaster(master.text, id, accessToken));
+        var local = localMaster(id, buildMaster(master.text, id, accessToken, CONFIG.limits.abrMaxHeight));
         lines.push('⑨ 交给播放器：' + (local ? ('本地 ABR master（' + local + '）') : '直连多档清单'));
         lines.push('⑩ 分片格式：' + (/\.m4s/.test(picked ? picked.text : '') ? 'CMAF fMP4（.m4s + #EXT-X-MAP）' : 'MPEG-TS'));
         return { ok: true, lines: lines, accessToken: accessToken };

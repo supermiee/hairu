@@ -319,6 +319,16 @@ test('buildMaster：把 master 改写为带 access_token 的绝对分片清单�
     assert.strictEqual(core.parseVariants(synth).length, 3, '合成 master 变体数不对:\n' + synth);
 });
 
+test('buildMaster：maxHeight 会裁掉撑不住的码率（避免 ABR 反复试探）', function () {
+    var capped = core.buildMaster(FIXTURE_MASTER, 219346, 'TOK', 720);
+    assert.ok(capped.indexOf('RESOLUTION=1920x1080') < 0, '1080P 未被裁掉:\n' + capped);
+    assert.ok(capped.indexOf('sv3-v1-a1') < 0, '1080P 分片清单未被裁掉:\n' + capped);
+    assert.deepStrictEqual(core.parseVariants(capped).map(function (v) { return v.height; }), [360, 720], '裁剪后应剩 360/720:\n' + capped);
+    var all = core.buildMaster(FIXTURE_MASTER, 219346, 'TOK');
+    assert.strictEqual(core.parseVariants(all).length, 3, '不传上限时应保留全部');
+    assert.deepStrictEqual(core.parseVariants(core.synthMaster(core.parseVariants(FIXTURE_MASTER), 219346, 'TOK', 720)).map(function (v) { return v.height; }), [360, 720], 'synthMaster 也应遵守上限');
+});
+
 test('resolveMedia：writeFile/getPath 可用时默认走本地 ABR master', function () {
     store = {};
     var written = {};
@@ -333,8 +343,10 @@ test('resolveMedia：writeFile/getPath 可用时默认走本地 ABR master', fun
         assert.deepStrictEqual(media.names.slice(1), ['1080P', '720P', '360P'], '手动线路名不对: ' + media.names);
         var content = written['hiker://files/cache/av01_master_219346.m3u8'];
         assert.ok(content && content.indexOf('RESOLUTION=') >= 0, '本地 master 内容不对');
-        assert.strictEqual(core.parseVariants(content).length, 3, '本地 master 变体数不对');
+        assert.deepStrictEqual(core.parseVariants(content).map(function (v) { return v.height; }), [360, 720], '本地 ABR master 应裁到 720P 以内');
+        assert.strictEqual(content.indexOf('sv3-v1-a1'), -1, '本地 ABR master 不应含 1080P');
         assert.ok(content.indexOf('access_token=TEST.ACCESS.TOKEN') >= 0, '本地 master 未注入 token');
+        assert.strictEqual(media.names.indexOf('1080P'), 1, '手动线路里仍应保留 1080P');
     } finally { delete global.writeFile; delete global.getPath; }
 });
 
@@ -433,9 +445,9 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.strictEqual(entry.search_url, 'https://www.av01.media/cn/search?q=**&page=fypage', 'search_url 不对: ' + entry.search_url);
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=4', '内核引用应为 ?v=3，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=5', '内核引用应为 ?v=3，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=4') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=5') >= 0, '未引用内核');
 });
 
 test('播放自检：resolveMedia / remotePlayUrl / diagnose 的落地数据', function () {
