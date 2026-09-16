@@ -1,7 +1,7 @@
 /*
  * Jable+ 预览工具：node tools/preview.js
- * 在 Node 桩里跑 jable_redesign_pages/g），把 setResult/setHomeResult 的卡片
- * 渲染成近似海阔布局的 HTML（/tmp/opencode/jable_preview.html），浏览器打开即可目检 UI。
+ * 在 Node 桩里跑 jable_core + jable_redesign_pages，把 setResult/setHomeResult 的卡片
+ * 渲成近似海阔布局的 HTML（docs/dev/preview.html），浏览器打开即可目检 UI。
  */
 'use strict';
 var fs = require('fs');
@@ -85,7 +85,6 @@ global.fetchPC = function (url) {
     return JSON.stringify({ body: FIXTURE_LIST, statusCode: 200, headers: {} });
 };
 
-var PAGES_URL_LIT = 'https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=1';
 var home = null, page = null;
 global.setHomeResult = function (r) { home = r; };
 global.setResult = function (r) { page = r; };
@@ -105,6 +104,11 @@ function renderCard(c) {
         case 'pic_1':
         case 'pic_1_full':
             return '<div class="pic1"><div class="picbig" style="background-image:url(' + (c.pic_url || '') + ')"></div><h5>' + esc(c.title || '') + '</h5></div>';
+        case 'movie_1_vertical_pic':
+        case 'movie_1_vertical_pic_blur':
+            return '<div class="vhero">' + (c.col_type === 'movie_1_vertical_pic_blur' ? '<div class="vbg" style="background-image:url(' + (c.pic_url || '') + ')"></div>' : '') +
+                '<div class="vpic" style="background-image:url(' + (c.pic_url || '') + ')"></div>' +
+                '<div class="vtext">' + esc(c.title || '') + (c.desc ? '<small>' + esc(c.desc) + '</small>' : '') + '</div></div>';
         case 'long_text':
             return '<p class="long_text" style="font-size:' + ((c.extra && c.extra.textSize) || 16) + 'px">' + esc(c.title || '') + (c.desc ? '<small>' + esc(c.desc) + '</small>' : '') + '</p>';
         case 'rich_text':
@@ -175,7 +179,11 @@ var html = '<!doctype html><meta charset="utf-8"><title>Jable+ 预览</title><st
     '.card.movie2 .thumbbox{position:relative;padding-top:56%;background:#333;border-radius:6px;background-size:cover;background-position:center}' +
     '.card.movie2 .thumbbox span{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.6);border-radius:4px;padding:0 4px;font-size:11px}' +
     '.card.movie2 h5{margin:4px 0 0;font-size:13px;font-weight:400;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}' +
-    '.pic1 .picbig{padding-top:56%;background:#333 border-radius:8px;background-size:cover}' +
+    '.pic1 .picbig{padding-top:56%;background:#333;border-radius:8px;background-size:cover}' +
+    '.vhero{position:relative;display:flex;gap:12px;overflow:hidden;border-radius:10px;min-height:150px;background:#1f1f1f}' +
+    '.vhero .vbg{position:absolute;left:-24px;top:-24px;right:-24px;bottom:-24px;background-size:cover;background-position:center;filter:blur(28px) brightness(.5)}' +
+    '.vhero .vpic{position:relative;flex:0 0 105px;min-height:150px;border-radius:8px;background-size:cover;background-position:center;margin:10px 0 10px 10px}' +
+    '.vhero .vtext{position:relative;align-self:center;padding-right:12px;font-size:16px;font-weight:600;color:#fff}' +
     '.pic1 h5{font-size:15px;margin:6px 0}' +
     'p.click-able{padding:8px 4px;border-bottom:1px solid #2a2a2a;margin:0;font-size:15px}' +
     'p.tc{margin:6px 0;text-align:center;padding:8px;border-radius:6px}' +
@@ -192,6 +200,6 @@ var html = '<!doctype html><meta charset="utf-8"><title>Jable+ 预览</title><st
 fs.mkdirSync('/tmp/opencode', { recursive: true });
 var out = path.join(ROOT, 'docs', 'dev', 'preview.html');
 fs.mkdirSync(path.dirname(out), { recursive: true });
-fs.writeFileSync(out, html);;
+fs.writeFileSync(out, html);
 console.log('preview:', home ? home.length + ' home cards, ' + detail.length + ' detail cards' : 'EMPTY');
 console.log('open https://supermiee.github.io/hairu/dev/preview.html after push');

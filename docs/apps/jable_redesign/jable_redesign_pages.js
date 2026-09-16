@@ -4,7 +4,7 @@
  * 设计参照 jable.tv 首页分区：精選/最近更新/全新上市/熱門/主題/女優。
  */
 (function () {
-    var MODULE_VERSION = '10';
+    var MODULE_VERSION = '12';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/jable_redesign/jable_redesign_pages.js?v=' + MODULE_VERSION;
     var CORE_URL = PUBLISH_BASE + 'apps/jable/jable_core.js?v=5';
@@ -80,8 +80,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=10').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=10').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=12').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=12').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -90,10 +90,10 @@
     function routeSearch(keyword, sort) {
         return renderListRoute(searchPagedSource(keyword, sort), { url: searchUrl(keyword, sort), title: '搜索：' + keyword, searchKeyword: keyword, searchSort: sort || 'relevance' });
     }
-    function pageRoute(name, params) {
-        return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=10').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=10').renderRouter(payload); }
+    function pageRoute(name, params, flags) {
+        return $('hiker://empty' + (flags || '')).rule(function (payload) {
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=12').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=12').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeModels(url, title) {
@@ -104,8 +104,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=10').renderModels(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=10').renderModels(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=12').renderModels(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=12').renderModels(payload); }
         }, params);
     }
     function routeDetail(item) {
@@ -338,7 +338,7 @@
         result.push({ title: '⭐ 收藏', url: pageRoute('renderLocalList', { key: 'favorites', title: '收藏' }), col_type: 'text_2', extra: { textAlign: 'left' } });
         result.push({ title: '🕐 觀看歷史', url: pageRoute('renderLocalList', { key: 'history', title: '觀看歷史' }), col_type: 'text_2', extra: { textAlign: 'left' } });
         result.push({ title: '📡 驗證並同步（Cloudflare）', url: routeVerification(), col_type: 'text_2', extra: { textAlign: 'left' } });
-        result.push({ title: '⚙ 設置與診斷', url: pageRoute('renderSettings', {}), col_type: 'text_2', extra: { textAlign: 'left' } });
+        result.push({ title: '⚙ 設置與診斷', url: pageRoute('renderSettings', {}, '#noRecordHistory##noRefresh#'), col_type: 'text_2', extra: { textAlign: 'left' } });
         try {
             var favorites = app.listValue('favorites', []) || [];
             var history = app.listValue('history', []) || [];
@@ -419,12 +419,15 @@
             try { if (detail.image) setPagePicUrl(detail.image); } catch (ignoreImage) {}
 
             var result = [];
-            if (detail.image) result.push({ pic_url: detail.image, col_type: 'pic_1_full', extra: { lineVisible: false } });
+            if (detail.image) result.push({
+                title: detail.title || (params && params.title) || '',
+                desc: (detail.isNew ? '📺 新片 · ' : '') + (detail.relativeTime || '') + (detail.publishedAt ? (' · 上市 ' + detail.publishedAt) : ''),
+                pic_url: detail.image,
+                col_type: 'movie_1_vertical_pic_blur',
+                extra: { lineVisible: false, gradient: true }
+            });
 
             var meta = [];
-            if (detail.isNew) meta.push('新片');
-            if (detail.relativeTime) meta.push(detail.relativeTime);
-            if (detail.publishedAt) meta.push('上市 ' + detail.publishedAt);
             if (detail.views) meta.push('觀看 ' + detail.views);
             if (detail.favoriteCount) meta.push('收藏 ' + detail.favoriteCount);
             if (meta.length) {
@@ -452,7 +455,7 @@
                 });
             }
 
-            result.push({ title: app.isFavorite(detail.url) ? '★ 已收藏' : '☆ 收藏', url: favoriteToggle(detail), col_type: 'flex_button' });
+            result.push({ title: app.isFavorite(detail.url) ? '★ 已收藏' : '☆ 收藏', url: favoriteToggle(detail), col_type: 'flex_button', extra: { id: 'fav:' + detail.url } });
             result.push({ title: '🌐 打開原網頁', url: 'web://' + page.url, col_type: 'flex_button' });
 
             if (detail.actors && detail.actors.length) {
@@ -479,9 +482,14 @@
             var app;
             try { app = requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5'); }
             catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5'); }
+            var id = 'fav:' + payload.url;
             var added = app.toggleFavorite(payload);
+            var toast = 'toast://' + (added ? '已收藏' : '已取消收藏');
+            if (typeof updateItem === 'function') {
+                try { updateItem(id, { title: added ? '★ 已收藏' : '☆ 收藏', extra: { id: id } }); return toast; } catch (ignoreUpdate) {}
+            }
             refreshPage(false);
-            return 'toast://' + (added ? '已收藏' : '已取消收藏');
+            return toast;
         }, { title: item.title, image: item.image || '', url: item.url });
     }
 
@@ -508,6 +516,22 @@
             { title: '📡 驗證並同步（Cloudflare）', desc: '站點要求人機驗證時必看', url: routeVerification(), col_type: 'text_center_1' },
             { title: '搜索歷史：' + (searchHistory.join(' · ') || '暫無'), col_type: 'text_1' },
             { title: '🧹 清除緩存與本地數據', url: $('hiker://empty#noLoading#').lazyRule(function () {
+                if (typeof confirm === 'function') {
+                    confirm({
+                        title: '清除緩存與本地數據',
+                        content: '將清除緩存、收藏與歷史等本地數據，確定繼續？',
+                        confirm: $.toString(function () {
+                            var app;
+                            try { app = requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5'); }
+                            catch (e) { app = $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5'); }
+                            app.clearLocal();
+                            try { refreshPage(false); } catch (ignoreRefresh) {}
+                            return 'toast://已清除';
+                        }),
+                        cancel: $.toString(function () { return 'toast://已取消'; })
+                    });
+                    return 'hiker://empty';
+                }
                 try { requirejs('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable/jable_core.js?v=5').clearLocal(); }
                 refreshPage(false);
                 return 'toast://已清除';

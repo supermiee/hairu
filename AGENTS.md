@@ -7,8 +7,8 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
-- Ported apps: `jable`, `missav`, plus `jable_redesign` — **Jable+**, a redesigned UI layer that reuses `jable_core.js?v=5` (shares cache/verification state with the original). Original Jable and MissAV stay untouched for comparison.
-- Tests: `node test/jable.test.js`, `node test/missav.test.js` (one file per app).
+- Ported apps: `jable`, `missav`, plus `jable_redesign` — **Jable+**, a redesigned UI layer that reuses `jable_core.js?v=5` (shares cache/verification state with the original). Original Jable and MissAV stay untouched for comparison; **all improvements target Jable+ only** (MissAV will get its own `missav+` later).
+- Tests: `node test/jable.test.js`, `node test/missav.test.js`, `node test/jable_redesign.test.js` (one file per app).
 
 ## Critical: version bump
 
@@ -18,7 +18,7 @@ Clients cache modules by URL. Any code change requires bumping, together:
 2. `MODULE_VERSION` at the top of `docs/apps/<app>/<app>_pages.js`
 3. Every hardcoded `?v=N` literal (inside `$().rule()`/`lazyRule()` callback strings that `require`s the module/core)
 
-`node test/jable.test.js` enforces 1–3. Never `requirejs` a module without `?v=`.
+Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module without `?v=`.
 
 ## Runtime environment (Hiker embedded JS engine)
 
@@ -34,6 +34,18 @@ Clients cache modules by URL. Any code change requires bumping, together:
 
 - Hiker **appends** the next page's result to the existing list (infinite scroll), it does not replace. So `renderList` must emit non-card items (title/heading, sort chips) **only on page 1** (`MY_PAGE <= 1`) or they repeat.
 - Time-ordered feeds (`/new`, `/release`) shift between page requests, so a card can reappear at the next page boundary. `dedupeAcrossPages()` keeps a per-route seen-URL set in rule vars (reset on page 1) and filters repeats. Scope key is the route title.
+- The app itself still drops a next page whose whole serialized result equals the previous page (`ArticleListFragment.java:2071` firstPageData/lastPageData check) — so only per-card repeats need the seen-URL set, whole-page repeats are already swallowed natively.
+
+## Useful APIs (verified vs help_js.md + JSEngine.java, 2026-09)
+
+- **局部刷新**：`updateItem(id, {title, extra:{id}})` updates one card in place via `extra.id` (id must be globally unique across pages; we use `'fav:'+url`). Siblings: `deleteItem` / `deleteItemByCls` / `addItemAfter` / `addItemBefore` / `findItem` / `findItemsByCls` (help_js.md:864-922; JSEngine.java:1167). Jable+ favorite toggle uses this with a `refreshPage(false)` fallback (`typeof updateItem` guard); keep it that way for future `missav+`.
+- **caveat**: pages containing both an `input` and `flex_button`/`scroll_button` must not use dynamic refresh on the flex/scroll items — it global-refreshes and blurs the input (help_js.md:924-926). Detail pages are safe (no input).
+- **confirm** 二次弹窗：`confirm({title, content, confirm: $.toString(fn), cancel: $.toString(fn)})` — the callback strings are isolated like rule callbacks; require the core inside them. Jable+「清除緩存與本地數據」uses it.
+- **showLoading/hideLoading**: NOT yet installed — it belongs in the shared `jable_core.js` webview branch, which would also touch original Jable; only ship it alongside a Jable+ iteration after deciding the shared-core policy (help_js.md:485-491).
+- **Page tags**: settings-family routes append `#noRecordHistory##noRefresh#` (no history record, no pull-refresh) — pattern in `jable_redesign_pages.js pageRoute`. `#autoCache#` caches only page 1 for instant reopen — only for low-frequency read-only pages.
+- `fetchCodeByWebView` already runs with `checkJs` (extract only when a marker selector exists) in both cores.
+- **Do not exist** (verified docs+source+two community repos): `updateAll`, `refreshx://`, `lazyConvert`, `setKey` (JS API). Real names: `refreshX5WebView(url)`, `setItem/getItem/clearItem`.
+- Full JS API surface = the 133 public methods of `JSEngine.java`; consult it before assuming an API is missing.
 
 ## Jable notes (hard-earned)
 
@@ -57,9 +69,9 @@ Clients cache modules by URL. Any code change requires bumping, together:
 ## Verifying changes
 
 ```
-node test/jable.test.js
+node test/jable.test.js        # plus missav.test.js, jable_redesign.test.js
 ```
 
-Dependency-free smoke test: stubs Hiker globals, runs real code paths (home/list/detail/search/version consistency) for Jable. Extend it for each new app.
+Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all three before a release. Extend the pattern for each new app.
 
 Reference material (read-only clones, never commit here): Hiker API docs at `~/code/developer-reference/Documents/docs/hikerview` (`help_api.md`, `help_js.md`, `help_rules.md`, `help_film_list_rules.md`), community sample rules at `~/code/developer-examples/hikerViewRules` (plaintext ES6 — adapt, don't copy verbatim), and the Android app source at `~/code/developer-reference/hikerView`. After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.
