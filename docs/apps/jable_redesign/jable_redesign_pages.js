@@ -4,7 +4,7 @@
  * 设计参照 jable.tv 首页分区：精選/最近更新/全新上市/熱門/主題/女優。
  */
 (function () {
-    var MODULE_VERSION = '3';
+    var MODULE_VERSION = '4';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/jable_redesign/jable_redesign_pages.js?v=' + MODULE_VERSION;
     var CORE_URL = PUBLISH_BASE + 'apps/jable/jable_core.js?v=5';
@@ -80,8 +80,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=3').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=3').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -92,8 +92,8 @@
     }
     function pageRoute(name, params) {
         return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=3').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=3').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeModels(url, title) {
@@ -104,8 +104,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=3').renderModels(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=3').renderModels(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderModels(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderModels(payload); }
         }, params);
     }
     function routeDetail(item) {
@@ -114,13 +114,11 @@
     function routeVerification() { return pageRoute('renderVerification', {}); }
 
     /* ---------- 通用渲染单元 ---------- */
+    /* 标题单行 text_1：整行可点击跳「更多」，避免更多按钮独占一行 */
     function sectionTitle(result, emoji, text, moreTitle, moreRoute) {
-        richTitle(result, emoji + ' ' + text);
-        if (moreRoute) result.push({ title: moreTitle || '更多 ›', url: moreRoute, col_type: 'text_center_1', extra: { lineVisible: false } });
-    }
-    /* long_text 纯文本标题；<font> 在 rich_text 里点击无效，配色交给 emoji */
-    function richTitle(result, text, size) {
-        result.push({ title: text, col_type: 'long_text', extra: { textSize: size || 17, lineVisible: false } });
+        var title = emoji + ' ' + text;
+        if (moreRoute) title += '\u3000' + (moreTitle || '更多') + ' ›';
+        result.push({ title: title, url: moreRoute || 'hiker://empty', col_type: 'text_1', extra: { textSize: 17, lineVisible: false } });
     }
     function randomColor() {
         return '#' + ('00000' + (Math.random() * 0x1000000 << 0).toString(16)).substr(-6);
@@ -255,7 +253,7 @@
     }
     function pushHomeSections(result, app) {
         var limits = [
-            { url: SITE + '/latest-updates/', title: '最近更新', emoji: '🆕', listCount: 6 },
+            { url: SITE + '/latest-updates/', title: '最近更新', emoji: '📺', listCount: 6 },
             { url: SITE + '/new-release/', title: '全新上市', emoji: '✨', listCount: 6 },
             { url: SITE + '/hot/?sort_by=video_viewed_week', title: '本週熱門', emoji: '🔥', listCount: 6 }
         ];
@@ -292,7 +290,7 @@
         if (!page.ok) { Array.prototype.push.apply(result, failure(page.error, SITE + '/categories/', pageRoute('renderTaxonomy', {}))); return; }
         var groups = app.parseTaxonomy(page.html, page.url);
         for (var g = 0; g < groups.length; g++) {
-            sectionTitle(result, '🏷️', groups[g].title, '更多 ›', routeList(SITE + '/categories/', groups[g].title));
+            sectionTitle(result, '🏷', groups[g].title, '更多 ›', routeList(SITE + '/categories/', groups[g].title));
             for (var t = 0; t < groups[g].items.length; t++) {
                 result.push({ title: groups[g].items[t].title, url: routeList(groups[g].items[t].url, groups[g].items[t].title), col_type: 'flex_button' });
             }
@@ -340,9 +338,9 @@
     }
     function pushMine(result, app) {
         result.push({ title: '⭐ 收藏', url: pageRoute('renderLocalList', { key: 'favorites', title: '收藏' }), col_type: 'text_2', extra: { textAlign: 'left' } });
-        result.push({ title: '🕘 觀看歷史', url: pageRoute('renderLocalList', { key: 'history', title: '觀看歷史' }), col_type: 'text_2', extra: { textAlign: 'left' } });
+        result.push({ title: '🕐 觀看歷史', url: pageRoute('renderLocalList', { key: 'history', title: '觀看歷史' }), col_type: 'text_2', extra: { textAlign: 'left' } });
         result.push({ title: '📡 驗證並同步（Cloudflare）', url: routeVerification(), col_type: 'text_2', extra: { textAlign: 'left' } });
-        result.push({ title: '⚙️ 設置與診斷', url: pageRoute('renderSettings', {}), col_type: 'text_2', extra: { textAlign: 'left' } });
+        result.push({ title: '⚙ 設置與診斷', url: pageRoute('renderSettings', {}), col_type: 'text_2', extra: { textAlign: 'left' } });
         try {
             var favorites = app.listValue('favorites', []) || [];
             var history = app.listValue('history', []) || [];
@@ -466,7 +464,7 @@
                 }
             }
             if (detail.tags && detail.tags.length) {
-                sectionTitle(result, '🏷️', '標籤', '', 'hiker://empty');
+                sectionTitle(result, '🏷', '標籤', '', 'hiker://empty');
                 for (var t = 0; t < detail.tags.length; t++) {
                     result.push({ title: detail.tags[t].title, url: routeList(detail.tags[t].url, detail.tags[t].title), col_type: 'flex_button', extra: { backgroundColor: randomColor() + '22' } });
                 }
