@@ -433,9 +433,9 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.strictEqual(entry.search_url, 'https://www.av01.media/cn/search?q=**&page=fypage', 'search_url 不对: ' + entry.search_url);
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=3', '内核引用应为 ?v=3，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=4', '内核引用应为 ?v=3，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=4') >= 0, '未引用内核');
 });
 
 test('播放自检：resolveMedia / remotePlayUrl / diagnose 的落地数据', function () {
@@ -444,6 +444,10 @@ test('播放自检：resolveMedia / remotePlayUrl / diagnose 的落地数据', f
     global.getPath = function (p) { return 'file:///tmp/' + p.split('/').pop(); };
     try {
         assert.ok(/^https:\/\/www\.av01\.media\/api\/v1\/videos\/219346\/manifest\/index90-sv2-v1-a1\.m3u8\?access_token=/.test(core.remotePlayUrl(219346, '720P')), 'remotePlayUrl 应给直连 720P: ' + core.remotePlayUrl(219346, '720P'));
+        var q = core.qualityUrl(219346, '1080P');
+        assert.ok(q && /index90-sv3-v1-a1\.m3u8\?access_token=/.test(q.url), 'qualityUrl 应锁定 1080P: ' + JSON.stringify(q));
+        assert.deepStrictEqual(Object.keys(q).sort(), ['name', 'url']);
+        assert.strictEqual(core.qualityUrl(219346, '480P'), null, '不存在的清晰度应返回 null');
         var report = core.diagnose(219346);
         assert.ok(report.ok, '自检失败: ' + JSON.stringify(report.lines));
         var text = report.lines.join('\n');
@@ -451,8 +455,10 @@ test('播放自检：resolveMedia / remotePlayUrl / diagnose 的落地数据', f
         assert.ok(/② cdn-access：成功/.test(text), '缺 cdn-access 结果');
         assert.ok(/③ master\.m3u8：成功，\d+ms，3 档码率/.test(text), '缺 master 结果: ' + text);
         assert.ok(/④ 360P 清单：\d+ms，\d+KB，6 分片/.test(text), '缺清单体积/分片数: ' + text);
-        assert.ok(/⑤ 分片测速（360P，Range 500KB）：\d+ms/.test(text), '缺分片测速: ' + text);
-        assert.ok(/⑦ 分片格式：CMAF fMP4/.test(text), '未识别出 CMAF: ' + text);
+        assert.ok(/⑤ 分片首包延迟（Range 2KB）：\d+ms/.test(text), '缺首包延迟: ' + text);
+        assert.ok(/⑥ 持续速度①（Range 3MB）：\d+ms，\d+KB，约 \d+ KB\/s/.test(text), '缺持续速度: ' + text);
+        assert.ok(/⑧ 带宽结论：约 \d+ KB\/s → /.test(text), '缺带宽结论: ' + text);
+        assert.ok(/⑩ 分片格式：CMAF fMP4/.test(text), '未识别出 CMAF: ' + text);
     } finally { delete global.writeFile; delete global.getPath; }
 });
 
@@ -463,6 +469,7 @@ test('详情页含播放自检/复制直连地址/原站播放器入口', functi
     assert.ok(t.indexOf('播放自检') >= 0, '缺播放自检入口: ' + t.slice(0, 300));
     assert.ok(t.indexOf('复制直连播放地址') >= 0, '缺复制入口');
     assert.ok(t.indexOf('用原站播放器播放') >= 0, '缺原站播放器入口');
+    assert.ok(t.indexOf('固定清晰度自测') >= 0, '缺固定清晰度自测行: ' + t.slice(0, 400));
     lastResult = null;
     pages.renderRouter({ name: 'renderDiagnostics', params: { id: 219346, url: 'https://www.av01.media/cn/video/219346/mird-281-lada' } });
     assert.ok(Array.isArray(lastResult) && lastResult.length, '自检页未输出');

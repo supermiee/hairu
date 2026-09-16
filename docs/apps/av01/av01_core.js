@@ -16,7 +16,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '1.2.0',
+        version: '1.3.0',
         source: 'https://www.av01.media',
         localePath: '/cn',
         lang: 'cn',
@@ -450,6 +450,16 @@
         return { ok: true, urls: urls, names: names, accessToken: accessToken, master: masterText, local: !!local, variants: variants };
     }
     function playerHeaders() { return { 'User-Agent': CONFIG.mobileUa, Referer: site() + '/' }; }
+    /* 锁定单档清晰度（不做 ABR）的直连地址，用于让用户手动排查「是网速还是播放器」 */
+    function qualityUrl(id, quality) {
+        var res = resolveMedia(id);
+        if (!res.ok) return null;
+        var variants = res.variants || [];
+        for (var i = 0; i < variants.length; i++) {
+            if (variantLabel(variants[i]) === quality) return { url: manifestUrl(id, variants[i].file, res.accessToken), name: quality };
+        }
+        return null;
+    }
     /* 直连（带 token）的某档清单地址，供「复制播放地址」到第三方播放器验证 */
     function remotePlayUrl(id, quality) {
         var res = resolveMedia(id);
@@ -490,16 +500,26 @@
         if (picked) {
             var seg = /https?:\/\/\S+\.(?:m4s|ts)\S*/.exec(picked.text);
             if (seg) {
-                t = now();
-                var r = requestText(seg[0], { headers: { 'User-Agent': CONFIG.mobileUa, Range: 'bytes=0-500000' }, timeout: 30000 });
-                var msec = now() - t, kb = r.ok ? Math.round(r.text.length / 1024) : 0;
-                lines.push('⑤ 分片测速（' + picked.label + '，Range 500KB）：' + (r.ok ? (msec + 'ms，约 ' + (msec > 0 ? Math.round(kb / (msec / 1000)) : '?') + ' KB/s') : ('失败，' + msec + 'ms')));
+                var p1 = speedProbe(seg[0], 2000);
+                lines.push('⑤ 分片首包延迟（Range 2KB）：' + (p1.ok ? (p1.ms + 'ms') : ('失败，' + p1.ms + 'ms')));
+                var p2 = speedProbe(seg[0], 3000000);
+                lines.push('⑥ 持续速度①（Range 3MB）：' + (p2.ok ? (p2.ms + 'ms，' + p2.kb + 'KB，约 ' + p2.kbps + ' KB/s') : ('失败，' + p2.ms + 'ms')));
+                var p3 = speedProbe(seg[0], 3000000);
+                lines.push('⑦ 持续速度②（Range 3MB，同一连接复用）：' + (p3.ok ? (p3.ms + 'ms，' + p3.kb + 'KB，约 ' + p3.kbps + ' KB/s') : ('失败，' + p3.ms + 'ms')));
+                var best = Math.max(p2.kbps, p3.kbps);
+                lines.push('⑧ 带宽结论：约 ' + best + ' KB/s → ' + (best >= 400 ? '够 1080P' : (best >= 200 ? '最多 720P' : (best >= 60 ? '只能 360P' : '连 360P 都勉强'))));
             }
         }
         var local = localMaster(id, buildMaster(master.text, id, accessToken));
-        lines.push('⑥ 交给播放器：' + (local ? ('本地 ABR master（' + local + '）') : '直连多档清单'));
-        lines.push('⑦ 分片格式：' + (/\.m4s/.test(picked ? picked.text : '') ? 'CMAF fMP4（.m4s + #EXT-X-MAP）' : 'MPEG-TS'));
+        lines.push('⑨ 交给播放器：' + (local ? ('本地 ABR master（' + local + '）') : '直连多档清单'));
+        lines.push('⑩ 分片格式：' + (/\.m4s/.test(picked ? picked.text : '') ? 'CMAF fMP4（.m4s + #EXT-X-MAP）' : 'MPEG-TS'));
         return { ok: true, lines: lines, accessToken: accessToken };
+    }
+    function speedProbe(url, rangeBytes) {
+        var t = now();
+        var r = requestText(url, { headers: { 'User-Agent': CONFIG.mobileUa, Range: 'bytes=0-' + rangeBytes }, timeout: 30000 });
+        var ms = now() - t, kb = r.ok ? Math.round(r.text.length / 1024) : 0;
+        return { ok: r.ok, ms: ms, kb: kb, kbps: (r.ok && ms > 0 && kb > 0) ? Math.round(kb / (ms / 1000)) : 0 };
     }
 
     /* ---------------- 本地数据 ---------------- */
@@ -546,7 +566,7 @@
         detail: detail, similars: similars, parseVariants: parseVariants, variantLabel: variantLabel,
         manifestUrl: manifestUrl, variantUrl: variantUrl, buildMaster: buildMaster, synthMaster: synthMaster,
         localMaster: localMaster, resolveMedia: resolveMedia, playerHeaders: playerHeaders,
-        remotePlayUrl: remotePlayUrl, diagnose: diagnose,
+        remotePlayUrl: remotePlayUrl, qualityUrl: qualityUrl, diagnose: diagnose,
         isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, addSearch: addSearch,
         listValue: listValue, setValue: setValue, readList: readList, writeList: writeList, clearLocal: clearLocal
     };
