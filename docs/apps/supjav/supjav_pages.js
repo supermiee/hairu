@@ -5,10 +5,10 @@
  * 顶部 tab：首页 / 热门 / 有码 / 无码 / 女优 / 分类 / 我的。
  */
 (function () {
-    var MODULE_VERSION = '1';
+    var MODULE_VERSION = '2';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/supjav/supjav_pages.js?v=' + MODULE_VERSION;
-    var CORE_URL = PUBLISH_BASE + 'apps/supjav/supjav_core.js?v=1';
+    var CORE_URL = PUBLISH_BASE + 'apps/supjav/supjav_core.js?v=2';
 
     var ACCENT = '#E91E63';
     var SITE = 'https://supjav.com/zh';
@@ -80,8 +80,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=1').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=1').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=2').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=2').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -93,8 +93,8 @@
     }
     function pageRoute(name, params, flags) {
         return $('hiker://empty' + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=1').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=1').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=2').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=2').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeDirectory(kind, url, title) {
@@ -389,6 +389,20 @@
                 });
             }
 
+            /* 站点多条服务线路（TV/FST/ST/VOE）：点哪条就解析哪条，直链播放，解不出则丢给网页嗅探 */
+            var servers = detail.servers || [];
+            if (servers.length > 1) {
+                sectionTitle(result, '🔀', '切换线路（' + servers.length + '）');
+                for (var si = 0; si < servers.length; si++) {
+                    result.push({
+                        title: servers[si].name + (media.ok && media.server === servers[si].name ? ' · 当前' : ''),
+                        url: playLine(servers[si]),
+                        col_type: 'flex_button',
+                        extra: { lineVisible: false }
+                    });
+                }
+            }
+
             result.push({ title: app.isFavorite(detail.url) ? '★ 已收藏' : '☆ 收藏', url: favoriteToggle(detail), col_type: 'flex_button', extra: { id: 'fav:' + detail.url } });
             result.push({ title: '🌐 打开原网页', url: 'web://' + page.url, col_type: 'flex_button' });
 
@@ -407,11 +421,25 @@
         sectionTitle(result, emoji, title);
         for (var i = 0; i < links.length; i++) result.push({ title: links[i].title, url: routeList(links[i].url, links[i].title), col_type: 'flex_button' });
     }
+    /* 点某条线路才去解析该线路：能直链就返回播放 payload，否则交给海阔网页嗅探 */
+    function playLine(server) {
+        return $('hiker://empty').lazyRule(function (payload) {
+            var app;
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2'); }
+            var resolved = app.resolveServer(payload);
+            if (resolved.media) {
+                return JSON.stringify({ urls: [resolved.media], names: [payload.name], headers: [app.playerHeaders({ url: resolved.pageUrl || app.config.playerHost })] });
+            }
+            if (resolved.pageUrl) return 'video://' + resolved.pageUrl + '#isVideo=true#';
+            return 'toast://该线路暂不可用，请换一条';
+        }, { name: server.name, token: server.token });
+    }
     function favoriteToggle(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2'); }
             var id = 'fav:' + payload.url;
             var added = app.toggleFavorite(payload);
             var toast = 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -454,8 +482,8 @@
                         content: '将清除缓存、收藏与历史等本地数据，确定继续？',
                         confirm: $.toString(function () {
                             var app2;
-                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1'); }
-                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1'); }
+                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2'); }
+                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2'); }
                             app2.clearLocal();
                             try { refreshPage(false); } catch (ignoreRefresh) {}
                             return 'toast://已清除';
@@ -464,7 +492,7 @@
                     });
                     return 'hiker://empty';
                 }
-                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1').clearLocal(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2').clearLocal(); }
                 refreshPage(false);
                 return 'toast://已清除';
             }), col_type: 'text_center_1' }
@@ -481,7 +509,7 @@
             { title: '打开验证网页', url: source, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: source, canBack: true } },
             { title: '第二步：验证成功后，点此返回并刷新', url: $('hiker://empty#noLoading#').lazyRule(function () {
                 try { putVar('supjav.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2').clearPageCache(); }
                 back(true);
                 return 'toast://已记录验证状态，请刷新';
             }), col_type: 'scroll_button', extra: { backgroundColor: ACCENT } },

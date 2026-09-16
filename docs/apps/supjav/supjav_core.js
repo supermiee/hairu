@@ -144,6 +144,17 @@
             return { ok: false, url: url, status: status, error: { message: '播放地址请求失败（HTTP ' + status + '）' } };
         } catch (error) { return { ok: false, url: url, error: { message: String(error) } }; }
     }
+    /* 不跟随跳转，取 302 的 Location（第三方播放页真实地址），用于网页嗅探兜底 */
+    function redirectUrl(url, options) {
+        options = options || {};
+        try {
+            var raw = fetchPC(url, { headers: { 'User-Agent': CONFIG.mobileUa, Referer: options.referer || origin(url) + '/' }, timeout: options.timeout || CONFIG.timeout, redirect: false, withHeaders: true });
+            var response = parseResponse(raw) || {}, headers = response.headers || {};
+            var location = headers['Location'] || headers['location'] || headers['LOCATION'];
+            if (location instanceof Array) location = location[0];
+            return location ? absolute(location, url) : '';
+        } catch (ignore) { return ''; }
+    }
     function readCache(key, ttl) {
         try { var item = storage0.getMyVar(cacheKey(key)); return item && now() - item.savedAt < ttl * 1000 ? item.value : null; } catch (ignore) { return null; }
     }
@@ -330,19 +341,73 @@
         var any = source.match(/https?:\/\/[^"'\s<>\\]+\.m3u8[^"'\s<>\\]*/i);
         return any ? any[0] : '';
     }
-    /* 详情页 data-link -> 反转 -> 播放中转页 -> m3u8；逐个线路尝试直到解出 */
+    /* Dean-Edwards 打包脚本（fc2stream 等）解包，找出 hls/m3u8 线路 */
+    function unpackPacker(script) {
+        var match = /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\}\('([\s\S]*?)',\s*(\d+),\s*(\d+),\s*'([^']*)'\.split\('\|'\)/i.exec(String(script || ''));
+        if (!match) return '';
+        var packed = match[1], base = Number(match[2]), count = Number(match[3]), keys = match[4].split('|');
+        if (base <= 1 || base > 62 || count < 0 || count > 200000) return '';
+        function toBase(number) {
+            var digits = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', value = '';
+            if (!number) return '0';
+            while (number) { value = digits.charAt(number % base) + value; number = Math.floor(number / base); }
+            return value;
+        }
+        var map = {};
+        for (var i = 0; i < count; i++) map[toBase(i)] = keys[i] || toBase(i);
+        return packed.replace(/\b(\w+)\b/g, function (all, key) { return map.hasOwnProperty(key) ? map[key] : key; });
+    }
+    function packedMedia(html) {
+        var scripts = String(html || '').match(/<script\b[^>]*>[\s\S]*?<\/script>/ig) || [];
+        for (var i = 0; i < scripts.length; i++) {
+            if (scripts[i].indexOf('eval(function') < 0) continue;
+            var unpacked = unpackPacker(scripts[i]);
+            if (!unpacked) continue;
+            var links = /links\s*=\s*(\{[\s\S]{0,2000}?\})/i.exec(unpacked);
+            if (links) {
+                var hls = /["']hls[0-9]?["']\s*:\s*["']([^"']+\.(?:m3u8|txt)[^"']*)["']/i.exec(links[1]);
+                if (hls) return hls[1].replace(/\\\//g, '/');
+            }
+            var file = /["']?file["']?\s*[:=]\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i.exec(unpacked);
+            if (file) return file[1].replace(/\\\//g, '/');
+        }
+        return '';
+    }
+    /* 从一个播放页 HTML 里尽最大努力提取直链媒体（m3u8/mp4） */
+    function extractMedia(html) {
+        var direct = parsePlayerPage(html);
+        if (direct) return direct;
+        var packed = packedMedia(html);
+        if (packed) return packed;
+        var any = String(html || '').replace(/\\\//g, '/').match(/https?:\/\/[^"'\s<>\\]+\.(?:m3u8|mp4)[^"'\s<>\\]*/i);
+        return any ? any[0] : '';
+    }
+    /* 解析单条站点线路：能直链就返回 media，否则给出第三方播放页地址供网页嗅探 */
+    function resolveServer(server) {
+        server = server || {};
+        if (!server.token) return { name: server.name || '', media: '', pageUrl: '', cUrl: '' };
+        var cUrl = CONFIG.playerHost + '/supjav.php?c=' + reverse(server.token);
+        var page = requestExternal(cUrl, { referer: CONFIG.playerHost + '/' });
+        var pageUrl = '';
+        if (page.ok) {
+            pageUrl = redirectUrl(cUrl, { referer: CONFIG.playerHost + '/' }) || '';
+            var media = extractMedia(page.html);
+            if (media) return { name: server.name || '线路', media: media, pageUrl: pageUrl, cUrl: cUrl };
+        } else {
+            pageUrl = redirectUrl(cUrl, { referer: CONFIG.playerHost + '/' }) || '';
+        }
+        return { name: server.name || '线路', media: '', pageUrl: pageUrl || cUrl, cUrl: cUrl };
+    }
+    /* 详情页data-link -> 反转 -> 播放中转页 -> m3u8；逐个线路尝试直到解出（主线路用） */
     function resolveMedia(html) {
         var servers = playerServers(html), failures = [];
         var max = Math.min(servers.length, CONFIG.limits.playerServers);
         for (var i = 0; i < max; i++) {
-            var url = CONFIG.playerHost + '/supjav.php?c=' + reverse(servers[i].token);
-            var page = requestExternal(url, { referer: CONFIG.playerHost + '/' });
-            if (!page.ok) { failures.push({ server: servers[i].name, reason: page.error && page.error.message }); continue; }
-            var media = parsePlayerPage(page.html);
-            if (media) return { ok: true, mediaUrl: media, server: servers[i].name, url: page.url, failures: failures };
-            failures.push({ server: servers[i].name, reason: 'no m3u8 in player page' });
+            var resolved = resolveServer(servers[i]);
+            if (resolved.media) return { ok: true, mediaUrl: resolved.media, server: resolved.name, failures: failures };
+            failures.push({ server: resolved.name, reason: 'no direct media (third-party player)' });
         }
-        return { ok: false, mediaUrl: '', server: '', failures: failures, error: { message: '未解析到播放地址（站点播放线路可能已变化）' } };
+        return { ok: false, mediaUrl: '', server: '', failures: failures, error: { message: '未解析到直达播放地址（站点多个线路均为第三方播放器）' } };
     }
     function playerHeaders(page) {
         return { Referer: CONFIG.playerHost + '/', Origin: CONFIG.playerHost, 'User-Agent': CONFIG.mobileUa };
@@ -386,7 +451,9 @@
         isHardBlock: isHardBlock, webviewMode: webviewMode,
         parseCards: parseCards, parseHomeSections: parseHomeSections, parseDirectory: parseDirectory,
         parseCast: parseCast, parseMaker: parseMaker, parseTags: parseTags, parseTotal: parseTotal, getList: getList,
-        parseDetail: parseDetail, parsePlayerPage: parsePlayerPage, playerServers: playerServers, resolveMedia: resolveMedia,
+        parseDetail: parseDetail, parsePlayerPage: parsePlayerPage, playerServers: playerServers,
+        unpackPacker: unpackPacker, packedMedia: packedMedia, extractMedia: extractMedia,
+        redirectUrl: redirectUrl, resolveServer: resolveServer, resolveMedia: resolveMedia,
         playerHeaders: playerHeaders,
         isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, addSearch: addSearch,
         listValue: listValue, setValue: setValue, readList: readList, writeList: writeList, clearLocal: clearLocal

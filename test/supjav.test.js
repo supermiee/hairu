@@ -48,6 +48,7 @@ var FIXTURE_DETAIL = fs.readFileSync(path.join(FIX, 'supjav_detail.html'), 'utf8
 var FIXTURE_CAST = fs.readFileSync(path.join(FIX, 'supjav_cast.html'), 'utf8');
 var FIXTURE_TAG = fs.readFileSync(path.join(FIX, 'supjav_tag.html'), 'utf8');
 var FIXTURE_PLAYER = fs.readFileSync(path.join(FIX, 'supjav_player.html'), 'utf8');
+var FIXTURE_PACKED = fs.readFileSync(path.join(FIX, 'supjav_packed_script.html'), 'utf8');
 
 var lastFetchUrl = '';
 function fetchPCImpl(url) {
@@ -261,6 +262,47 @@ test('parsePlayerPage 兼容 data-hash 与裸 m3u8', function () {
     assert.strictEqual(core.parsePlayerPage('<script>var src="https:\\/\\/x.com\\/a.m3u8";</script>'), 'https://x.com/a.m3u8');
 });
 
+test('真实打包脚本 fixture：packedMedia 能解出 FST 的 hls 线路', function () {
+    var url = core.packedMedia(FIXTURE_PACKED);
+    assert.ok(/^https?:\/\//.test(url), '未解出线路: ' + url);
+    assert.ok(/\.(m3u8|txt)/.test(url), '不是 hls 线路: ' + url);
+    assert.strictEqual(core.extractMedia(FIXTURE_PACKED), url, 'extractMedia 未回退到打包脚本');
+});
+
+test('resolveServer：直链线路返回 media，非直链线路回退到第三方页面地址', function () {
+    var old = global.fetchPC;
+    try {
+        /* 1) 直链：data-hash 播放页 */
+        global.fetchPC = function (url) {
+            var s = String(url);
+            if (/redirect=false/.test(s) || s.indexOf('GETREDIRECT') >= 0) return JSON.stringify({ body: '', headers: { Location: ['https://turbovidhls.com/t/abc'] }, statusCode: 302 });
+            return JSON.stringify({ body: FIXTURE_PLAYER, headers: {}, statusCode: 200 });
+        };
+        var direct = core.resolveServer({ name: 'TV', token: 'abc' });
+        assert.strictEqual(direct.media, 'https://cdn.turboviplay.com/data1/6aa9621c41a98/6aa9621c41a98.m3u8', '直链未解析');
+        assert.strictEqual(direct.name, 'TV');
+
+        /* 2) 非直链：SVG/JS 播放器页 -> 只给第三方页面地址 */
+        global.fetchPC = function (url, opts) {
+            if (opts && opts.redirect === false) return JSON.stringify({ body: '', headers: { Location: ['https://voe.sx/e/xyz'] }, statusCode: 302 });
+            return JSON.stringify({ body: '<html><body><script>var source=null;</script></body></html>', headers: {}, statusCode: 200 });
+        };
+        var fallback = core.resolveServer({ name: 'VOE', token: 'def' });
+        assert.strictEqual(fallback.media, '', '不应解析出直链');
+        assert.strictEqual(fallback.pageUrl, 'https://voe.sx/e/xyz', '未回退到第三方页面地址');
+    } finally { global.fetchPC = old; }
+});
+
+test('详情页渲染线路 chips（TV/FST/ST/VOE）', function () {
+    store = {};
+    pages.renderRouter({ name: 'renderDetail', params: { url: 'https://supjav.com/zh/458193.html', title: 'x' } });
+    var t = titles(lastResult);
+    ['TV', 'FST', 'ST', 'VOE'].forEach(function (name) {
+        assert.ok(t.indexOf(name) >= 0, '缺线路 chip: ' + name);
+    });
+    assert.ok(t.indexOf('切换线路') >= 0, '缺线路分区标题: ' + t);
+});
+
 test('parseDetail 同时兼容 (html, url) 与页面对象', function () {
     var a = core.parseDetail(FIXTURE_DETAIL, 'https://supjav.com/zh/458193.html');
     var b = core.parseDetail({ html: FIXTURE_DETAIL, url: 'https://supjav.com/zh/458193.html' });
@@ -270,7 +312,8 @@ test('parseDetail 同时兼容 (html, url) 与页面对象', function () {
     assert.strictEqual(a.cast.title, '桜木なぎさ');
     assert.strictEqual(a.maker.title, 'JIMMY SCANDAL');
     assert.strictEqual(a.tags.length, 6, '标签数量不对: ' + a.tags.length);
-    assert.strictEqual(a.servers.length, 3, '线路数量不对: ' + a.servers.length);
+    assert.strictEqual(a.servers.length, 4, '线路数量不对: ' + a.servers.length);
+    assert.deepStrictEqual(a.servers.map(function (s) { return s.name; }), ['TV', 'FST', 'ST', 'VOE']);
     assert.ok(/img\.supjav\.com\/images/.test(a.image), '封面未取到: ' + a.image);
 });
 
@@ -344,9 +387,9 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.ok(entry.search_url.indexOf('https://supjav.com/zh/?s=**') >= 0, 'search_url 不对: ' + entry.search_url);
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=1', '内核引用应为 ?v=1，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=2', '内核引用应为 ?v=2，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=1') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2') >= 0, '未引用内核');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
