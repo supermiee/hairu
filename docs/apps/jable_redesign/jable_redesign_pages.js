@@ -4,7 +4,7 @@
  * 设计参照 jable.tv 首页分区：精選/最近更新/全新上市/熱門/主題/女優。
  */
 (function () {
-    var MODULE_VERSION = '4';
+    var MODULE_VERSION = '5';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/jable_redesign/jable_redesign_pages.js?v=' + MODULE_VERSION;
     var CORE_URL = PUBLISH_BASE + 'apps/jable/jable_core.js?v=5';
@@ -80,8 +80,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=5').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=5').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -92,8 +92,8 @@
     }
     function pageRoute(name, params) {
         return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=5').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=5').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeModels(url, title) {
@@ -104,8 +104,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderModels(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=4').renderModels(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=5').renderModels(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=5').renderModels(payload); }
         }, params);
     }
     function routeDetail(item) {
@@ -117,8 +117,9 @@
     /* 标题单行 text_1：整行可点击跳「更多」，避免更多按钮独占一行 */
     function sectionTitle(result, emoji, text, moreTitle, moreRoute) {
         var title = emoji + ' ' + text;
+        if (moreTitle) moreTitle = String(moreTitle).replace(/[\s\u203a>]+$/, '');
         if (moreRoute) title += '\u3000' + (moreTitle || '更多') + ' ›';
-        result.push({ title: title, url: moreRoute || 'hiker://empty', col_type: 'text_1', extra: { textSize: 17, lineVisible: false } });
+        result.push({ title: title, url: moreRoute || 'toast://仅供展示，不可点击', col_type: 'text_1', extra: { textSize: 17, lineVisible: false } });
     }
     function randomColor() {
         return '#' + ('00000' + (Math.random() * 0x1000000 << 0).toString(16)).substr(-6);
@@ -263,7 +264,7 @@
             var cfg = limits[i];
             var data = app.getList(cfg.url, '/videos/', 0);
             if (!data.ok) { failed++; if (!firstFailure) firstFailure = { url: cfg.url, error: data.error }; continue; }
-            sectionTitle(result, cfg.emoji, cfg.title, '更多 ›', routeList(cfg.url, cfg.title));
+            sectionTitle(result, cfg.emoji, cfg.title, '更多', routeList(cfg.url, cfg.title));
             var items = data.items;
             for (var j = 0; j < items.length && j < cfg.listCount; j++) {
                 result.push(card(items[j], i === 0 && j === 0));
@@ -290,7 +291,7 @@
         if (!page.ok) { Array.prototype.push.apply(result, failure(page.error, SITE + '/categories/', pageRoute('renderTaxonomy', {}))); return; }
         var groups = app.parseTaxonomy(page.html, page.url);
         for (var g = 0; g < groups.length; g++) {
-            sectionTitle(result, '🏷', groups[g].title, '更多 ›', routeList(SITE + '/categories/', groups[g].title));
+            sectionTitle(result, '🏷', groups[g].title, '更多', routeList(SITE + '/categories/', groups[g].title));
             for (var t = 0; t < groups[g].items.length; t++) {
                 result.push({ title: groups[g].items[t].title, url: routeList(groups[g].items[t].url, groups[g].items[t].title), col_type: 'flex_button' });
             }
@@ -458,19 +459,19 @@
             result.push({ title: '🌐 打開原網頁', url: 'web://' + page.url, col_type: 'flex_button' });
 
             if (detail.actors && detail.actors.length) {
-                sectionTitle(result, '👩', '演員', '', 'hiker://empty');
+                sectionTitle(result, '👩', '演員');
                 for (var a = 0; a < detail.actors.length; a++) {
                     result.push({ title: detail.actors[a].title, url: routeList(detail.actors[a].url, detail.actors[a].title), col_type: 'flex_button', extra: { backgroundColor: randomColor() + '22' } });
                 }
             }
             if (detail.tags && detail.tags.length) {
-                sectionTitle(result, '🏷', '標籤', '', 'hiker://empty');
+                sectionTitle(result, '🏷', '標籤');
                 for (var t = 0; t < detail.tags.length; t++) {
                     result.push({ title: detail.tags[t].title, url: routeList(detail.tags[t].url, detail.tags[t].title), col_type: 'flex_button', extra: { backgroundColor: randomColor() + '22' } });
                 }
             }
             if (detail.recommendations && detail.recommendations.length) {
-                sectionTitle(result, '✨', '猜你喜歡', '查看更多 ›', routeList(page.url, '相關'));
+                sectionTitle(result, '✨', '猜你喜歡', '查看更多', routeList(page.url, '相關'));
                 for (var r = 0; r < detail.recommendations.length && r < 6; r++) result.push(card(detail.recommendations[r]));
             }
             setResult(result);
