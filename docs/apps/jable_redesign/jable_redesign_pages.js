@@ -4,7 +4,7 @@
  * 设计参照 jable.tv 首页分区：精選/最近更新/全新上市/熱門/主題/女優。
  */
 (function () {
-    var MODULE_VERSION = '7';
+    var MODULE_VERSION = '8';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/jable_redesign/jable_redesign_pages.js?v=' + MODULE_VERSION;
     var CORE_URL = PUBLISH_BASE + 'apps/jable/jable_core.js?v=5';
@@ -80,8 +80,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=7').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=7').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=8').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=8').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -92,8 +92,8 @@
     }
     function pageRoute(name, params) {
         return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=7').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=7').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=8').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=8').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeModels(url, title) {
@@ -104,8 +104,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=7').renderModels(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=7').renderModels(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=8').renderModels(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=8').renderModels(payload); }
         }, params);
     }
     function routeDetail(item) {
@@ -429,7 +429,7 @@
             if (detail.favoriteCount) meta.push('收藏 ' + detail.favoriteCount);
             if (meta.length) {
                 for (var mi = 0; mi < meta.length; mi++) {
-                    result.push({ title: meta[mi], url: 'hiker://empty', col_type: 'flex_button', extra: { backgroundColor: '#3A3A3A', lineVisible: false } });
+                    result.push({ title: meta[mi], url: 'hiker://empty#noLoading#', col_type: 'flex_button', extra: { lineVisible: false } });
                 }
             }
 
@@ -458,13 +458,13 @@
             if (detail.actors && detail.actors.length) {
                 sectionTitle(result, '👩', '演員');
                 for (var a = 0; a < detail.actors.length; a++) {
-                    result.push({ title: detail.actors[a].title, url: routeList(detail.actors[a].url, detail.actors[a].title), col_type: 'flex_button', extra: { backgroundColor: '#3A3A3A' } });
+                    result.push({ title: detail.actors[a].title, url: routeList(detail.actors[a].url, detail.actors[a].title), col_type: 'flex_button'});
                 }
             }
             if (detail.tags && detail.tags.length) {
                 sectionTitle(result, '🏷', '標籤');
                 for (var t = 0; t < detail.tags.length; t++) {
-                    result.push({ title: detail.tags[t].title, url: routeList(detail.tags[t].url, detail.tags[t].title), col_type: 'flex_button', extra: { backgroundColor: '#3A3A3A' } });
+                    result.push({ title: detail.tags[t].title, url: routeList(detail.tags[t].url, detail.tags[t].title), col_type: 'flex_button'});
                 }
             }
             if (detail.recommendations && detail.recommendations.length) {
