@@ -116,7 +116,7 @@ function renderCard(c) {
         case 'flex_button':
             return '<button class="chip">' + esc(String(c.title || '').replace(/^\u201C\u201C\u201D\u201D/, '')) + '</button>';
         case 'scroll_button':
-            return '<button class="tab' + (bg ? ' tab-active' : '') + '">' + esc(String(c.title || '')) + '</button>';
+            return '<button class="tab' + (bg ? ' tab-active' : '') + '">' + esc(String(c.title || '').replace(/^\u201C\u201C\u201D\u201D/, '')) + '</button>';
         case 'input':
             return '<div class="inputbox"><input placeholder="' + esc(c.desc || '') + '"><button>' + esc(c.title || '搜索') + '</button></div>';
         case 'blank_block': return '<hr class="b">';
@@ -139,9 +139,10 @@ function agg(cards) {
     }
     cards.forEach(function (c) {
         var col = c.col_type;
-        if (col === 'scroll_button' || col === 'flex_button') {
+        if (col === 'movie_2' || col === 'flex_button' || col === 'scroll_button' || col === 'text_2') {
             if (buf.length && type !== col) { out.push('<div class="' + type + '-strip">' + buf.join('') + '</div>'); buf = []; }
             type = buf.length ? type : col; buf.push(renderCard(c));
+            if (buf.length >= 2 && type === 'movie_2') { out.push('<div class="movie_2-strip">' + buf.join('') + '</div>'); buf = []; }
         } else { flush(); out.push(renderCard(c)); }
     });
     flush();
@@ -154,9 +155,9 @@ function block(cards, name) {
 }
 
 pages.renderHome();
-var h = home;
+var homeCards = JSON.parse(JSON.stringify(home));
 store['jbp.tab'] = '5'; pages.renderHome();
-var modelsHome = home;
+var modelsHome = home; store['jbp.tab'] = '0';
 store['jbp.tab'] = '0';
 pages.renderRouter({ name: 'renderDetail', params: { url: 'https://jable.tv/videos/abc-001/', title: 'x' } });
 var detail = page;
@@ -169,7 +170,8 @@ var html = '<!doctype html><meta charset="utf-8"><title>Jable+ 预览</title><st
     '.flex_button-strip{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0}' +
     'button,button.tab{flex:0 0 auto;padding:4px 10px;border-radius:16px;border:1px solid #444;background:transparent;color:inherit;font-size:13px}' +
     '.tab-active{background:#E91E63;border-color:#E91E63}' +
-    '.movie2-strip,.movie2s{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0}' +
+    '.movie2-strip,.movie2s,.movie_2-strip{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0}' +
+    '.text_2-strip{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0}' +
     '.card.movie2 .thumbbox{position:relative;padding-top:56%;background:#333;border-radius:6px;background-size:cover;background-position:center}' +
     '.card.movie2 .thumbbox span{position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.6);border-radius:4px;padding:0 4px;font-size:11px}' +
     '.card.movie2 h5{margin:4px 0 0;font-size:13px;font-weight:400;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}' +
@@ -183,7 +185,7 @@ var html = '<!doctype html><meta charset="utf-8"><title>Jable+ 预览</title><st
     '.b{border:0;border-top:1px solid transparent;margin:8px 0}' +
     '.movie2s{display:grid;grid-gap:10px}' +
     '</style>' +
-    block(home, 'renderHome（首頁 tab）') +
+    block(homeCards, 'renderHome（首頁 tab）') +
     block(modelsHome, 'renderHome（女優 tab）') +
     block(detail, '详情页');
 
