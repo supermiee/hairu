@@ -8,7 +8,8 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
 - Ported apps: `jable`, `missav`, plus `jable_redesign` — **Jable+** and `missav_plus` — **MissAV+**. Both are redesigned UI layers that reuse their original core (`jable_core.js?v=5`, `missav_core.js?v=5`) so cache/verification state is shared with the original. Original Jable/MissAV stay untouched for comparison; **all improvements target the `+` versions only**.
-- Tests: `node test/jable.test.js`, `node test/missav.test.js`, `node test/jable_redesign.test.js`, `node test/missav_plus.test.js` (one file per app). Shared-core additions are covered by both the original app's test (backward compatibility) and the `+` test.
+- New site: `supjav` — **SupJav** (`docs/apps/supjav/supjav_core.js` + `supjav_pages.js`), a single-module app (no original/`+` split) in the v10 UI style, Simplified strings.
+- Tests: `node test/jable.test.js`, `node test/missav.test.js`, `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js` (one file per app). Shared-core additions are covered by both the original app's test (backward compatibility) and the `+` test.
 - Shared-core policy: `missav_core.js` was `?v=4` when only the original used it; MissAV+ consumes it at `?v=5` and the original keeps its `?v=4` literals untouched. So the original may serve a stale cached core to existing installs (no regression) while MissAV+ always gets the new one. Additions must stay backward compatible (`parseDetail` accepts both `(html, url)` and a `{html, url}` page object).
 
 ## Critical: version bump
@@ -80,13 +81,25 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 - State keys are prefixed `msp.` (original MissAV uses `missav.ui.`), so both can be installed side by side.
 - Preview: `node tools/preview_missav.js` → `docs/dev/preview_missav.html` (home/hot/actress/mine tabs + detail).
 
+## SupJav notes
+
+- `docs/apps/supjav/supjav_pages.js` (see its `MODULE_VERSION`) + `supjav_core.js?v=1` (same folder). 7 top tabs: 首页/热门/有码/无码/女优/分类/我的, 玫红 `#E91E63` selection, v10 home (first card `pic_1`, rest `movie_2`, `text_1` clickable section titles with `更多 ›`), detail hero `pic_1_full` → meta chips → accent play → favorite/原网页 → 类别/制作商/女优 chips → 猜你喜欢. Strings Simplified (site locale `/zh` is Simplified).
+- **Use the `/zh` locale** (`https://supjav.com/zh/...`): qTranslate serves Chinese titles, category names (有码/无码/素人/中文字幕/无码破解), cast and tags. Card hrefs on `/zh` already carry the `/zh/` prefix.
+- **Cards**: `<div class="post"><a class="img" href><img data-original|src></a><div class="con"><h3><a>TITLE</a></h3><div class="meta">DATE<span class="date">N Views</span></div></div></div>`. Grid cards use a base64 `src` placeholder + `data-original` (lazy); the home slider uses a direct `src`. `parseCards()` matches `<div class="post">…<div class="meta">…</div>` (no duration field — show date/views instead).
+- **Home is server-rendered in sections** `<div class="archive-title">` (h1 title + optional h1 `(count)` + `a.more`) followed by `.posts`. `parseHomeSections()` splits on `archive-title` so each chunk holds exactly one section; section 1 is the *Week's Popular* swiper (~18 slides).
+- **Pagination is path-based** (`/page/N`), unlike MissAV's query param: category `/category/x/page/2`, popular `/popular/page/2?sort=week`, cast `/cast/page/2`, maker `/maker/page/2`, tag `/tag/page/2`. **Search differs**: `/zh/page/2?s=kw` (page before the query). `pagedSource()` moves any `?query` after `/page/fypage`, which covers both. Search URL is `https://supjav.com/zh/?s=**`.
+- **Directory pages** (女优 `cast`, 制作商 `maker`, 类别 `tag`) render `<a href="...">名称 (123)</a>`; `parseCast`/`parseMaker`/`parseTags` share `parseDirectory()` and read the count from the parenthesis.
+- **Playback needs a two-step chain**: the detail page exposes `.btn-server[data-link]` (TV/FST/ST/VOE). Reverse the token string and GET `https://lk1.supremejav.com/supjav.php?c=<reversed>` **with a `Referer: https://lk1.supremejav.com/`** (any Referer works; without one the server returns an empty 404 body). It 302-redirects to a third-party player page (`turbovidhls.com`) whose `<div id="video_player" data-hash="…m3u8">` holds the m3u8. `resolveMedia()` tries up to 3 servers in order until one yields an m3u8; the TV server almost always works. The m3u8 CDN needs no special headers. The intermediate `supjav.php?l=<token>` page refuses to run when not framed (it prints `404` if `top===self`), so request `?c=<reversed>` directly.
+- **Cloudflare**: `supjav.com` is managed-challenged (curl always 403 `Just a moment`, even with a browser UA). Same `isHardBlock` + `fetchCodeByWebView` fallback + `supjav.webviewMode` +「验证并同步」flow as MissAV. `img.supjav.com`, the `lk1.supremejav.com` proxy and the m3u8 CDN are **not** challenged, so cover images and playback work without verification.
+- State keys are prefixed `sj.`. Preview: `node tools/preview_supjav.js` → `docs/dev/preview_supjav.html`.
+
 ## Verifying changes
 
 ```
-node test/jable.test.js        # plus missav.test.js, jable_redesign.test.js, missav_plus.test.js
-node tools/preview_missav.js   # visual preview → docs/dev/preview_missav.html
+node test/jable.test.js        # plus missav.test.js, jable_redesign.test.js, missav_plus.test.js, supjav.test.js
+node tools/preview_supjav.js   # visual preview → docs/dev/preview_supjav.html
 ```
 
-Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all four before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (currently the MissAV packer script) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
+Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all five before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script plus `supjav_home/list/detail/cast/tag/player.html`) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
 
 Reference material (read-only clones, never commit here): Hiker API docs at `~/code/developer-reference/Documents/docs/hikerview` (`help_api.md`, `help_js.md`, `help_rules.md`, `help_film_list_rules.md`), community sample rules at `~/code/developer-examples/hikerViewRules` (plaintext ES6 — adapt, don't copy verbatim), and the Android app source at `~/code/developer-reference/hikerView`. After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.
