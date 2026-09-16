@@ -6,10 +6,10 @@
  * 文案为简体中文（站点 /cn 为简体）。
  */
 (function () {
-    var MODULE_VERSION = '2';
+    var MODULE_VERSION = '3';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/av01/av01_pages.js?v=' + MODULE_VERSION;
-    var CORE_URL = PUBLISH_BASE + 'apps/av01/av01_core.js?v=2';
+    var CORE_URL = PUBLISH_BASE + 'apps/av01/av01_core.js?v=3';
 
     var ACCENT = '#E91E63';
     var SITE = 'https://www.av01.media/cn';
@@ -93,8 +93,8 @@
     }
     function routeList(url, title, flags) {
         return $('hiker://empty#' + pagedSource(url) + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=2').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=2').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=3').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=3').renderList(payload); }
         }, { url: url, title: title || '影片列表' });
     }
     function routeSearch(keyword) { return routeList(searchUrl(keyword), '搜索：' + keyword); }
@@ -109,8 +109,8 @@
     }
     function pageRoute(name, params, flags) {
         return $('hiker://empty' + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=2').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=2').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=3').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=3').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeDetail(item) {
@@ -277,6 +277,7 @@
         try {
             var handler = ({
                 renderDetail: renderDetail,
+                renderDiagnostics: renderDiagnostics,
                 renderLocalList: renderLocalList,
                 renderSettings: renderSettings,
                 renderVerification: renderVerificationPage
@@ -382,6 +383,9 @@
 
             result.push({ title: app.isFavorite(url) ? '★ 已收藏' : '☆ 收藏', url: favoriteToggle(detail), col_type: 'flex_button', extra: { id: 'fav:' + url } });
             result.push({ title: '🌐 打开原网页', url: 'web://' + url, col_type: 'flex_button' });
+            result.push({ title: '🩺 播放自检', url: pageRoute('renderDiagnostics', { id: id, url: url, title: detail.title }), col_type: 'flex_button', extra: { lineVisible: false } });
+            result.push({ title: '📋 复制直连播放地址', url: copyPlayUrl(id), col_type: 'flex_button', extra: { lineVisible: false } });
+            result.push({ title: '🌐 用原站播放器播放', url: 'video://' + url + '#isVideo=true#', col_type: 'flex_button', extra: { lineVisible: false } });
 
             linkRow(result, '👩', '女优', detail.actresses);
             linkRow(result, '🏢', '片商', detail.maker ? [detail.maker] : []);
@@ -394,6 +398,42 @@
             }
             setResult(result);
         } catch (error) { setResult(renderError('详情', error, params)); }
+    }
+    /* 复制一条带 token 的直连播放地址，方便粘到 VLC/MX 等第三方播放器对比（token 约 1 小时有效） */
+    function copyPlayUrl(id) {
+        return $('hiker://empty').lazyRule(function (payload) {
+            var app;
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3'); }
+            var target = app.remotePlayUrl(payload.id, '720P');
+            if (!target) return 'toast://解析失败，先用「播放自检」看哪一步出错';
+            try { copy(target); } catch (ignoreCopy) {}
+            return 'toast://已复制直连地址，可粘到 VLC/MX 对比';
+        }, { id: id });
+    }
+    /* ---------- 播放自检 ---------- */
+    function renderDiagnostics(params) {
+        params = params || {};
+        var app = core();
+        var id = String(params.id || app.idFrom(params.url, 'video'));
+        try { setPageTitle('播放自检'); } catch (ignore) {}
+        var result = [];
+        try {
+            var report = app.diagnose(id);
+            result.push({ title: '播放自检 · 视频 ' + id, col_type: 'long_text', extra: { textSize: 18, lineVisible: false } });
+            for (var i = 0; i < report.lines.length; i++) {
+                result.push({ title: report.lines[i], col_type: 'long_text', extra: { textSize: 14, lineVisible: false } });
+            }
+            result.push({
+                title: report.ok ? '把上面 ①~⑦ 截图发给开发者即可定位' : ('结论：' + ((report.error && report.error.message) || '自检失败')),
+                desc: '⑤ 的 KB/s 是设备到分片 CDN 的真实速度；若 ①②③ 都快、⑤ 也快，说明瓶颈在播放器而不是网络',
+                col_type: 'long_text',
+                extra: { textSize: 14, lineVisible: false }
+            });
+        } catch (error) { result = renderError('播放自检', error, params); }
+        result.push({ title: '📋 复制直连播放地址（粘到 VLC/MX 对比）', url: copyPlayUrl(id), col_type: 'text_center_1' });
+        result.push({ title: '🌐 用原站播放器播放（hls.js）', url: 'video://' + (params.url || (app.site() + '/video/' + id)) + '#isVideo=true#', col_type: 'text_center_1' });
+        setResult(result);
     }
     function linkRow(result, emoji, title, links) {
         if (!links || !links.length) return;
@@ -411,8 +451,8 @@
     function favoriteToggle(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3'); }
             var id = 'fav:' + payload.url;
             var added = app.toggleFavorite(payload);
             var toast = 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -454,8 +494,8 @@
                         content: '将清除缓存、收藏与历史等本地数据，确定继续？',
                         confirm: $.toString(function () {
                             var app2;
-                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2'); }
-                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2'); }
+                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3'); }
+                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3'); }
                             app2.clearLocal();
                             try { refreshPage(false); } catch (ignoreRefresh) {}
                             return 'toast://已清除';
@@ -464,7 +504,7 @@
                     });
                     return 'hiker://empty';
                 }
-                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2').clearLocal(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3').clearLocal(); }
                 refreshPage(false);
                 return 'toast://已清除';
             }), col_type: 'text_center_1' }
@@ -478,7 +518,7 @@
             { title: '打开验证网页', url: SITE, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: SITE, canBack: true } },
             { title: '第二步：验证成功后，点此返回并刷新', url: $('hiker://empty#noLoading#').lazyRule(function () {
                 try { putVar('av01.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=3').clearPageCache(); }
                 back(true);
                 return 'toast://已记录验证状态，请刷新';
             }), col_type: 'scroll_button', extra: { backgroundColor: ACCENT } }

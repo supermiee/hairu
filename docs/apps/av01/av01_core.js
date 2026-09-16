@@ -16,7 +16,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '1.1.0',
+        version: '1.2.0',
         source: 'https://www.av01.media',
         localePath: '/cn',
         lang: 'cn',
@@ -450,6 +450,57 @@
         return { ok: true, urls: urls, names: names, accessToken: accessToken, master: masterText, local: !!local, variants: variants };
     }
     function playerHeaders() { return { 'User-Agent': CONFIG.mobileUa, Referer: site() + '/' }; }
+    /* 直连（带 token）的某档清单地址，供「复制播放地址」到第三方播放器验证 */
+    function remotePlayUrl(id, quality) {
+        var res = resolveMedia(id);
+        if (!res.ok) return '';
+        var names = res.names, target = quality || '720P';
+        for (var i = 0; i < names.length; i++) if (names[i] === target) return res.urls[i];
+        return res.urls[res.local ? 1 : 0] || res.urls[0];
+    }
+    /* 播放自检：在设备上把每一跳的耗时/体积/速度测出来（详情页「🩺 播放自检」入口调用） */
+    function diagnose(id) {
+        var lines = [], t;
+        var g = geo();
+        lines.push('① geo 令牌：' + (g ? ('成功（token_v2 ' + String(g.token_v2).length + ' 字符，expires=' + g.expires + '）') : '失败'));
+        if (!g) return { ok: false, lines: lines, error: { message: 'geo.js 拿不到令牌，播放必然失败' } };
+        t = now();
+        var cdnUrl = CONFIG.cdnHost + '/api/v1/videos/' + id + '/cdn-access?token_v2=' + encode(g.token_v2) + '&expires=' + encode(g.expires) + '&ip=' + encode(g.ip);
+        var cdn = requestJson(cdnUrl, { headers: { 'User-Agent': CONFIG.userAgent, Referer: site() + '/', Accept: 'application/json, text/plain, */*' } });
+        var accessToken = cdn.ok && cdn.data && cdn.data.access_token ? cdn.data.access_token : '';
+        lines.push('② cdn-access：' + (accessToken ? ('成功，' + (now() - t) + 'ms') : ('失败，' + (now() - t) + 'ms')));
+        if (!accessToken) return { ok: false, lines: lines, error: { message: 'CDN 访问令牌获取失败' } };
+        t = now();
+        var master = requestText(api('/videos/' + id + '/manifest/master.m3u8'), { headers: { 'User-Agent': CONFIG.userAgent, Referer: site() + '/', Accept: '*/*' } });
+        var variants = master.ok ? parseVariants(master.text) : [];
+        lines.push('③ master.m3u8：' + (master.ok ? ('成功，' + (now() - t) + 'ms，' + variants.length + ' 档码率') : ('失败，' + (now() - t) + 'ms')));
+        if (!variants.length) return { ok: false, lines: lines, error: { message: 'master.m3u8 解析不出码率档' } };
+        variants = variants.sort(function (a, b) { return (a.height || a.bandwidth) - (b.height || b.bandwidth); });
+        var picked = null;
+        for (var i = 0; i < variants.length; i++) {
+            var url = manifestUrl(id, variants[i].file, accessToken);
+            t = now();
+            var pl = requestText(url, { headers: { 'User-Agent': CONFIG.userAgent, Referer: site() + '/', Accept: '*/*' }, timeout: 30000 });
+            var ms = now() - t;
+            if (!pl.ok) { lines.push('④ ' + variantLabel(variants[i]) + ' 清单：失败，' + ms + 'ms'); continue; }
+            var segs = (String(pl.text).match(/\.(?:m4s|ts)/g) || []).length;
+            lines.push('④ ' + variantLabel(variants[i]) + ' 清单：' + ms + 'ms，' + Math.round(pl.text.length / 1024) + 'KB，' + segs + ' 分片');
+            if (!picked) picked = { label: variantLabel(variants[i]), text: pl.text };
+        }
+        if (picked) {
+            var seg = /https?:\/\/\S+\.(?:m4s|ts)\S*/.exec(picked.text);
+            if (seg) {
+                t = now();
+                var r = requestText(seg[0], { headers: { 'User-Agent': CONFIG.mobileUa, Range: 'bytes=0-500000' }, timeout: 30000 });
+                var msec = now() - t, kb = r.ok ? Math.round(r.text.length / 1024) : 0;
+                lines.push('⑤ 分片测速（' + picked.label + '，Range 500KB）：' + (r.ok ? (msec + 'ms，约 ' + (msec > 0 ? Math.round(kb / (msec / 1000)) : '?') + ' KB/s') : ('失败，' + msec + 'ms')));
+            }
+        }
+        var local = localMaster(id, buildMaster(master.text, id, accessToken));
+        lines.push('⑥ 交给播放器：' + (local ? ('本地 ABR master（' + local + '）') : '直连多档清单'));
+        lines.push('⑦ 分片格式：' + (/\.m4s/.test(picked ? picked.text : '') ? 'CMAF fMP4（.m4s + #EXT-X-MAP）' : 'MPEG-TS'));
+        return { ok: true, lines: lines, accessToken: accessToken };
+    }
 
     /* ---------------- 本地数据 ---------------- */
     function readList(name) { try { return storage0.getMyVar(cacheKey(name)) || []; } catch (ignore) { return []; } }
@@ -495,6 +546,7 @@
         detail: detail, similars: similars, parseVariants: parseVariants, variantLabel: variantLabel,
         manifestUrl: manifestUrl, variantUrl: variantUrl, buildMaster: buildMaster, synthMaster: synthMaster,
         localMaster: localMaster, resolveMedia: resolveMedia, playerHeaders: playerHeaders,
+        remotePlayUrl: remotePlayUrl, diagnose: diagnose,
         isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, addSearch: addSearch,
         listValue: listValue, setValue: setValue, readList: readList, writeList: writeList, clearLocal: clearLocal
     };
