@@ -7,8 +7,9 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
-- Ported apps: `jable`, `missav`, plus `jable_redesign` — **Jable+**, a redesigned UI layer that reuses `jable_core.js?v=5` (shares cache/verification state with the original). Original Jable and MissAV stay untouched for comparison; **all improvements target Jable+ only** (MissAV will get its own `missav+` later).
-- Tests: `node test/jable.test.js`, `node test/missav.test.js`, `node test/jable_redesign.test.js` (one file per app).
+- Ported apps: `jable`, `missav`, plus `jable_redesign` — **Jable+** and `missav_plus` — **MissAV+**. Both are redesigned UI layers that reuse their original core (`jable_core.js?v=5`, `missav_core.js?v=5`) so cache/verification state is shared with the original. Original Jable/MissAV stay untouched for comparison; **all improvements target the `+` versions only**.
+- Tests: `node test/jable.test.js`, `node test/missav.test.js`, `node test/jable_redesign.test.js`, `node test/missav_plus.test.js` (one file per app). Shared-core additions are covered by both the original app's test (backward compatibility) and the `+` test.
+- Shared-core policy: `missav_core.js` was `?v=4` when only the original used it; MissAV+ consumes it at `?v=5` and the original keeps its `?v=4` literals untouched. So the original may serve a stale cached core to existing installs (no regression) while MissAV+ always gets the new one. Additions must stay backward compatible (`parseDetail` accepts both `(html, url)` and a `{html, url}` page object).
 
 ## Critical: version bump
 
@@ -38,7 +39,7 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 
 ## Useful APIs (verified vs help_js.md + JSEngine.java, 2026-09)
 
-- **局部刷新**：`updateItem(id, {title, extra:{id}})` updates one card in place via `extra.id` (id must be globally unique across pages; we use `'fav:'+url`). Siblings: `deleteItem` / `deleteItemByCls` / `addItemAfter` / `addItemBefore` / `findItem` / `findItemsByCls` (help_js.md:864-922; JSEngine.java:1167). Jable+ favorite toggle uses this with a `refreshPage(false)` fallback (`typeof updateItem` guard); keep it that way for future `missav+`.
+- **局部刷新**：`updateItem(id, {title, extra:{id}})` updates one card in place via `extra.id` (id must be globally unique across pages; we use `'fav:'+url`). Siblings: `deleteItem` / `deleteItemByCls` / `addItemAfter` / `addItemBefore` / `findItem` / `findItemsByCls` (help_js.md:864-922; JSEngine.java:1167). Jable+ and MissAV+ favorite toggles use this with a `refreshPage(false)` fallback (`typeof updateItem` guard).
 - **caveat**: pages containing both an `input` and `flex_button`/`scroll_button` must not use dynamic refresh on the flex/scroll items — it global-refreshes and blurs the input (help_js.md:924-926). Detail pages are safe (no input).
 - **confirm** 二次弹窗：`confirm({title, content, confirm: $.toString(fn), cancel: $.toString(fn)})` — the callback strings are isolated like rule callbacks; require the core inside them. Jable+「清除緩存與本地數據」uses it.
 - **showLoading/hideLoading**: NOT yet installed — it belongs in the shared `jable_core.js` webview branch, which would also touch original Jable; only ship it alongside a Jable+ iteration after deciding the shared-core policy (help_js.md:485-491).
@@ -64,14 +65,27 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 - Detail: metadata uses `<span>番号:</span> … </div>` rows, parsed by `field`/`fieldLinks` (`番号/发行日期/女优/类型/系列/发行商/导演/标籤`); `og:title`/`og:image`/`og:video:*` also present.
 - Playback: the m3u8 lives inside a Dean-Edwards packed `<script>` (`eval(function(p,a,c,k,e,d)`) — `unpackPacker` + `parseQualities`. Decoded URLs are `\/`-escaped and often end with a stray trailing `\`, so `parseQualities` normalizes slashes and strips trailing backslashes (a leftover `\` makes the player fail silently). Multiple qualities become multiple player lines. Surrit m3u8 needs no special headers.
 - Metadata links carry a rotating `/dmNN/` segment — `stripDm()` removes it so saved/derived URLs stay stable.
-- Cloudflare challenges aggressively on non-home paths; keep the `fetchCodeByWebView` + `missav.webviewMode` verification flow. Source list has a few mirrors (`missav.ws`, `missav.ai`, `missav123.com`).
+- Cloudflare challenges aggressively on non-home paths; keep the `fetchCodeByWebView` + `missav.webviewMode` verification flow. Source list has a few mirrors (`missav.ws`, `missav.ai`, `missav123.com`). Note: a burst of back-to-back `fetch()`es gets challenged even after a single page succeeds, so sequential (not parallel) section fetches are the safer default.
+- **Home sections (verified 2026-09)**: `新作上市` / `最近更新` / `无码影片` / `随机` are static server-rendered `.thumbnail` cards each with a `更多` link (`/cn/release`, `/cn/new`, `/cn/uncensored-leak`). The `推荐给你` and tag blocks (`中出`, `接吻`, `姊姊`) are Alpine `x-for` templates with `:data-src` bindings — **not** in the static HTML, so never use them as parse targets. Stable (non-`/dmNN/`) section URLs: `/cn/new`, `/cn/release`, `/cn/uncensored-leak`, `/cn/today-hot`, `/cn/weekly-hot`, `/cn/monthly-hot`, `/cn/chinese-subtitle`.
+- **Card duration markup changed**: the site now emits one plain span `<span class="absolute bottom-1 right-1 …">\n  2:52:41\n</span>` instead of the old `<span x-text="h">` triple. `cardDuration()` matches `>\s*(\d{1,2}:\d{2}:\d{2})\s*<` (whitespace included) and keeps the `x-text` form as a fallback; both are covered by tests.
+- **女优目录行**: name, `N 条影片` and `N 出道` now live inside a *single* `<a>` (previously name/count were separate anchors). `parseDirectory()` still merges separate count anchors and additionally reads an inline count from the label.
+- **Detail metadata rows**: `<div class="text-secondary"><span>番号:</span> <span class="font-medium">VALUE</span> </div>` (value inline, sometimes a `<time>`; `标籤` may use a `/cn/tags/…` href). `og:description` is frequently empty now, so `parseDescription()` falls back to the `.line-clamp-2` block.
+- **Playback**: the m3u8 lives in a Dean-Edwards packer whose payload is itself base-N encoded (`eval(function(p,a,c,k,e,d){…}('e=\'8://7.6/5-4-3-2-1/d.0\';…',15,15,'m3u8|…'.split('|'),0,{}))`). The regex-based `unpackPacker()` + `parseQualities()` decode it; a real fragment is stored at `test/fixtures/missav_packed_script.html` so the test does not drift from reality. `directUrls` in the page points at tsyndicate API URLs (not m3u8) — don't use it for playback.
+
+## MissAV+ notes
+
+- `docs/apps/missav_plus/missav_plus_pages.js` (v1) + shared `missav_core.js?v=5`. UI mirrors Jable+ v10: 7 top tabs (首页/最近更新/新作上市/热门/女优/类型/我的), 玫红 `#E91E63` selection, home sections with `pic_1` first card + `movie_2` two-column, `text_1` clickable section titles with `更多 ›`, detail hero `pic_1_full` → meta chips → play → favorite/原网页 → 演员/类型/系列/发行商/导演/标签 chips → 猜你喜欢. Strings are Simplified (site is Simplified).
+- Core additions made for it (backward compatible, both apps' tests cover them): `getList(url, marker, limit)`, `parseTotal`, `listValue`/`setValue`, `addSearch`, `clearLocal`, and a `parseDetail` that accepts a `{html, url}` page object. `getList` treats `limit <= 0` as "all" (the raw `parseCards` slices at 0).
+- State keys are prefixed `msp.` (original MissAV uses `missav.ui.`), so both can be installed side by side.
+- Preview: `node tools/preview_missav.js` → `docs/dev/preview_missav.html` (home/hot/actress/mine tabs + detail).
 
 ## Verifying changes
 
 ```
-node test/jable.test.js        # plus missav.test.js, jable_redesign.test.js
+node test/jable.test.js        # plus missav.test.js, jable_redesign.test.js, missav_plus.test.js
+node tools/preview_missav.js   # visual preview → docs/dev/preview_missav.html
 ```
 
-Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all three before a release. Extend the pattern for each new app.
+Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all four before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (currently the MissAV packer script) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
 
 Reference material (read-only clones, never commit here): Hiker API docs at `~/code/developer-reference/Documents/docs/hikerview` (`help_api.md`, `help_js.md`, `help_rules.md`, `help_film_list_rules.md`), community sample rules at `~/code/developer-examples/hikerViewRules` (plaintext ES6 — adapt, don't copy verbatim), and the Android app source at `~/code/developer-reference/hikerView`. After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.
