@@ -167,10 +167,7 @@ test('详情页：大图/元信息 chips/彩色播放按钮/演员标签', funct
     store = {};
     pages.renderRouter({ name: 'renderDetail', params: { url: 'https://jable.tv/videos/abc-001/', title: 'x' } });
     assert.ok(Array.isArray(lastResult) && lastResult.length, '未输出详情');
-    var hero = lastResult[0];
-    assert.strictEqual(hero.col_type, 'movie_1_vertical_pic_blur', '详情 hero 未用高斯模糊卡');
-    assert.ok(hero.extra.gradient === true, 'hero 缺渐变');
-    assert.ok(/ABC-001/.test(hero.title), 'hero 缺标题');
+    assert.strictEqual(lastResult[0].col_type, 'pic_1_full', '详情 hero 未用完整海报');
     var playCard = lastResult.filter(function (c) { return /立即播放/.test(c.title); })[0];
     assert.ok(playCard, '缺播放按钮');
     assert.strictEqual(playCard.extra.backgroundColor, '#E91E63', '播放按钮缺强调色');
