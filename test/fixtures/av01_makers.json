@@ -1,0 +1,108 @@
+{
+ "makers": [
+  {
+   "id": 52660,
+   "name": "FC2",
+   "name_translations": {
+    "cn": "FC2",
+    "en": "FC2"
+   },
+   "score": 133436.07999420166
+  },
+  {
+   "id": 66,
+   "name": "SODクリエイト",
+   "name_translations": {
+    "cn": "SOD Create",
+    "en": "SOD Create"
+   },
+   "image_r2_key": "entities/makers/66/original.gif",
+   "score": 94696.74490714073
+  },
+  {
+   "id": 14,
+   "name": "ムーディーズ",
+   "name_translations": {
+    "cn": "Moodyz",
+    "en": "MOODYZ"
+   },
+   "image_r2_key": "entities/makers/14/original.gif",
+   "score": 92048.80630874634
+  },
+  {
+   "id": 77,
+   "name": "エスワン ナンバーワンスタイル",
+   "name_translations": {
+    "cn": "S1 No.1 Sytle",
+    "en": "S1 NO.1 STYLE"
+   },
+   "image_r2_key": "entities/makers/77/original.gif",
+   "score": 61910.17375904322
+  },
+  {
+   "id": 112,
+   "name": "マドンナ",
+   "name_translations": {
+    "cn": "Madonna",
+    "en": "Madonna"
+   },
+   "image_r2_key": "entities/makers/112/original.gif",
+   "score": 46247.705664783716
+  },
+  {
+   "id": 93229,
+   "name": "SHIGEKI",
+   "name_translations": {
+    "cn": "SHIGEKI",
+    "en": "SHIGEKI"
+   },
+   "image_r2_key": "entities/makers/93229/original.gif",
+   "score": 38476.265931129456
+  },
+  {
+   "id": 31,
+   "name": "プレステージ",
+   "name_translations": {
+    "cn": "Prestige",
+    "en": "Prestige"
+   },
+   "score": 23050.949266016483
+  },
+  {
+   "id": 14850,
+   "name": "FALENO",
+   "name_translations": {
+    "cn": "FALENO",
+    "en": "FALENO"
+   },
+   "image_r2_key": "entities/makers/14850/original.gif",
+   "score": 20338.381155490875
+  },
+  {
+   "id": 588,
+   "name": "アタッカーズ",
+   "name_translations": {
+    "cn": "Attackers",
+    "en": "ATTACKERS"
+   },
+   "image_r2_key": "entities/makers/588/original.gif",
+   "score": 18438.53043758869
+  },
+  {
+   "id": 43,
+   "name": "アイデアポケット",
+   "name_translations": {
+    "cn": "Idea Pocket",
+    "en": "Idea Pocket"
+   },
+   "image_r2_key": "entities/makers/43/original.gif",
+   "score": 17493.133048534393
+  }
+ ],
+ "pagination": {
+  "page": 1,
+  "limit": 10,
+  "total": 879,
+  "totalPages": 88
+ }
+}

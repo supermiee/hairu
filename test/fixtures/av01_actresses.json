@@ -1,0 +1,110 @@
+{
+ "actresses": [
+  {
+   "id": 311821,
+   "name": "逢月ひまり",
+   "name_translations": {
+    "cn": "逢月日葵",
+    "en": "Himari Aizuki"
+   },
+   "image_r2_key": "entities/actresses/311821/original.jpg",
+   "score": 35090.18230724335
+  },
+  {
+   "id": 579158,
+   "name": "小坂ひまり",
+   "name_translations": {
+    "cn": "小坂日葵",
+    "en": "Himari Kosaka"
+   },
+   "image_r2_key": "entities/actresses/579158/original.jpg",
+   "score": 33187.19926285744
+  },
+  {
+   "id": 601693,
+   "name": "小野坂ゆいか",
+   "name_translations": {
+    "cn": "小野坂唯香",
+    "en": "Yuika Onosaka"
+   },
+   "image_r2_key": "entities/actresses/601693/original.jpg",
+   "score": 23614.282757520676
+  },
+  {
+   "id": 45,
+   "name": "佐々木あき",
+   "name_translations": {
+    "cn": "佐佐木明希",
+    "en": "Aki Sasaki"
+   },
+   "image_r2_key": "entities/actresses/45/original.jpg",
+   "score": 22953.754456996918
+  },
+  {
+   "id": 52240,
+   "name": "八木奈々",
+   "name_translations": {
+    "cn": "八木奈奈",
+    "en": "Nana Yagi"
+   },
+   "image_r2_key": "entities/actresses/52240/original.jpg",
+   "score": 22613.780677080154
+  },
+  {
+   "id": 530640,
+   "name": "浅野こころ",
+   "name_translations": {
+    "cn": "浅野心",
+    "en": "Kokoro Asano"
+   },
+   "image_r2_key": "entities/actresses/530640/original.jpg",
+   "score": 22594.665884017944
+  },
+  {
+   "id": 136110,
+   "name": "ひなたなつ（日向なつ）",
+   "name_translations": {
+    "cn": "日向夏",
+    "en": "Natsu Hinata"
+   },
+   "image_r2_key": "entities/actresses/136110/original.jpg",
+   "score": 21332.97762441635
+  },
+  {
+   "id": 495931,
+   "name": "葉山さゆり",
+   "name_translations": {
+    "cn": "叶山小百合",
+    "en": "Sayuri Hayama"
+   },
+   "image_r2_key": "entities/actresses/495931/original.jpg",
+   "score": 15584.020178675652
+  },
+  {
+   "id": 48122,
+   "name": "松本いちか",
+   "name_translations": {
+    "cn": "松本一香",
+    "en": "Ichika Matsumoto"
+   },
+   "image_r2_key": "entities/actresses/48122/original.jpg",
+   "score": 11756.379905223846
+  },
+  {
+   "id": 49026,
+   "name": "青空ひかり",
+   "name_translations": {
+    "cn": "青空光",
+    "en": "Hikari Aozora"
+   },
+   "image_r2_key": "entities/actresses/49026/original.jpg",
+   "score": 10115.84302163124
+  }
+ ],
+ "pagination": {
+  "page": 1,
+  "limit": 10,
+  "total": 9702,
+  "totalPages": 971
+ }
+}

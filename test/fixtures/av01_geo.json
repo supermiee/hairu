@@ -1,0 +1,16 @@
+{
+ "token_v2": "PKmv3lqN9gkVphrOMM_X7Z_jvl0lJmECQlEVj7A69Y0",
+ "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhdjAxLWFwaSIsInN1YiI6InNwYSIsImlhdCI6MTc4OTU2ODc1NSwiaXAiOiIzNS4yMDYuMTk5LjI0NSIsImFzbiI6MTk1MjcsImV4cCI6MTc4OTU3MDU1NX0.WUAC2SXRiohdVetfOZLA7Bk_WlGyLlRmkHkQPnGpyOQ",
+ "expires": "1789570555",
+ "ip": "35.206.199.245",
+ "asn": 19527,
+ "isp": "Google LLC",
+ "continent": "AS",
+ "country": "TW",
+ "ttl": 600,
+ "url": "https://files.iw01.xyz/edge/geo.js",
+ "comp": false,
+ "r2_cover": true,
+ "r2_vtt": true,
+ "dynamic_playlist": false
+}

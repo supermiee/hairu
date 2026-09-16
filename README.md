@@ -14,6 +14,8 @@
 | Jable+ | 重构 UI（复用 jable core） | `docs/apps/jable_redesign/jable_redesign_pages.js` |
 | MissAV | 原版 | `docs/apps/missav/missav_pages.js` |
 | MissAV+ | 重构 UI（复用 missav core） | `docs/apps/missav_plus/missav_plus_pages.js` |
+| SupJav | v10 UI（单模块） | `docs/apps/supjav/supjav_pages.js` |
+| AV01 | v10 UI（单模块，JSON API 站点） | `docs/apps/av01/av01_pages.js` |
 | Hanime1 | 待迁移 | — |
 
 ## 开发
@@ -23,7 +25,11 @@ node test/jable.test.js
 node test/missav.test.js
 node test/jable_redesign.test.js
 node test/missav_plus.test.js
+node test/supjav.test.js
+node test/av01.test.js
 node tools/preview_missav.js   # 生成 docs/dev/preview_missav.html
+node tools/preview_supjav.js   # 生成 docs/dev/preview_supjav.html
+node tools/preview_av01.js     # 生成 docs/dev/preview_av01.html
 ```
 
 细节见 `AGENTS.md`。

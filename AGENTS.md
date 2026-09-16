@@ -9,7 +9,8 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
 - Ported apps: `jable`, `missav`, plus `jable_redesign` — **Jable+** and `missav_plus` — **MissAV+**. Both are redesigned UI layers that reuse their original core (`jable_core.js?v=5`, `missav_core.js?v=5`) so cache/verification state is shared with the original. Original Jable/MissAV stay untouched for comparison; **all improvements target the `+` versions only**.
 - New site: `supjav` — **SupJav** (`docs/apps/supjav/supjav_core.js` + `supjav_pages.js`), a single-module app (no original/`+` split) in the v10 UI style, Simplified strings.
-- Tests: `node test/jable.test.js`, `node test/missav.test.js`, `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js` (one file per app). Shared-core additions are covered by both the original app's test (backward compatibility) and the `+` test.
+- New site: `av01` — **AV01** (`docs/apps/av01/av01_core.js` + `av01_pages.js`), single-module app, v10 UI style, Simplified strings. Unlike the others it is a **React SPA** whose HTML is an empty shell, so everything is parsed from its REST JSON API (`/api/v1/...`). See "AV01 notes".
+- Tests: `node test/jable.test.js`, `node test/missav.test.js`, `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js`, `node test/av01.test.js` (one file per app). Shared-core additions are covered by both the original app's test (backward compatibility) and the `+` test.
 - Shared-core policy: `missav_core.js` was `?v=4` when only the original used it; MissAV+ consumes it at `?v=5` and the original keeps its `?v=4` literals untouched. So the original may serve a stale cached core to existing installs (no regression) while MissAV+ always gets the new one. Additions must stay backward compatible (`parseDetail` accepts both `(html, url)` and a `{html, url}` page object).
 
 ## Critical: version bump
@@ -98,13 +99,35 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 - **Cloudflare**: `supjav.com` is managed-challenged (curl always 403 `Just a moment`, even with a browser UA). Same `isHardBlock` + `fetchCodeByWebView` fallback + `supjav.webviewMode` +「验证并同步」flow as MissAV. `img.supjav.com`, the `lk1.supremejav.com` proxy and the m3u8 CDN are **not** challenged, so cover images and playback work without verification.
 - State keys are prefixed `sj.`. Preview: `node tools/preview_supjav.js` → `docs/dev/preview_supjav.html`.
 
+## AV01 notes
+
+- `docs/apps/av01/av01_pages.js` (see its `MODULE_VERSION`) + `av01_core.js?v=1` (same folder). 7 top tabs: 首页/最近更新/热门/女优/片商/分类/我的, 玫红 `#E91E63` selection, v10 home (first card `pic_1`, rest `movie_2`, `text_1` clickable section titles with `更多 ›`), detail hero `pic_1_full` → meta chips → accent play → favorite/原网页 → 女优/片商/标签 chips → 猜你喜欢. Strings Simplified (site `/cn` is Simplified).
+- **SPA — never parse HTML.** `https://www.av01.media/cn` returns a ~4 KB React shell; all content comes from `https://www.av01.media/api/v1/...` (verified 2026-09). Endpoints used:
+  - `videos/types/combined?hottest_page=&hottest_limit=&latest_page=&latest_limit=&hottest_makers_page=&hottest_makers_limit=` → `{hottest_videos, latest_videos, hottest_makers:[{maker, videos, pagination}]}` (one request powers the whole home tab).
+  - `videos/types/{latest,hottest}?page=&limit=` → `{videos, pagination}`.
+  - `videos/search?lang=cn` is **POST** `{query, pagination:{page,limit}}` → `{videos, pagination}` (GET returns 400).
+  - `videos/{id}` (detail), `videos/{id}/similars?page=&limit=`, `videos/{actress|maker|tag}/{id}?page=&limit=`, `actresses|makers|tags/by-score?page=&limit=` (the `/cn/actresses` page itself uses `limit=100`).
+- **i18n**: video/actress/maker/tag objects carry `title_translations` / `description_translations` / `name_translations` keyed by `cn`,`en`,`hk`,`tw`,… — read `.cn` client-side (no locale param needed). Only `videos/search` takes `?lang=cn`.
+- **Covers/avatars are signed and 401 without a token**: `https://files.iw01.xyz/covers/{id}/800.webp?token_v2=<t>&expires=<e>&ip=<i>`; the token triple comes from `GET https://files.iw01.xyz/edge/geo.js?json` (also has `r2_cover`; when false use `covers/{id}/640.jpg`). Actress/maker images are `files.iw01.xyz/<image_r2_key>` with the same triple. `geo()` is cached ~8 min; signed image URLs expire, so old favorites' covers may 404 later (accepted).
+- **Playback needs a signed token that must be injected into every segment** (verified end-to-end with curl + browser):
+  1. `GET {cdn}/api/v1/videos/{id}/cdn-access?token_v2=&expires=&ip=` where `{cdn}` = `https://customers.iw01.xyz` → `{access_token}` (a JWT whose `sub` is the storage prefix; `is_hot:true` means the IP claim is **not** enforced, so it works from any client).
+  2. `GET https://www.av01.media/api/v1/videos/{id}/manifest/master.m3u8` (public, no token) → variants `index90-sv1-v1-a1.m3u8` (360p) / `sv2` (720p) / `sv3` (1080p) with `RESOLUTION`.
+  3. `GET https://www.av01.media/api/v1/videos/{id}/manifest/<variant>?access_token=<token>` — the **API** side then rewrites the playlist so every `#EXT-X-MAP`/segment URL points at `customers.iw01.xyz/fmp4/...` **with the token baked in**. Give Hiker these variant URLs directly (highest first) as `urls`; the bare `customers` variant playlist returns `403 Forbidden Resource Pattern`, and the master's relative variants carry no token, so neither can be handed to the player raw.
+  - `videos/{id}/token` and `videos/{id}/playlist` also exist (`playlist` returns a base64 data-URI m3u8), but `cdn-access` + `master.m3u8` above is the working path.
+- Segment requests work with any/no `Referer` (only the token matters), so `playerHeaders()` just sends the mobile UA + site Referer.
+- **No Cloudflare today** — plain `curl` reaches the API, geo, covers and CDN. The CF/webview code paths are kept for future-proofing but are unused.
+- Pagination is API page numbers, not the site's paths: list/search routes use `page=fypage` in the Hiker page source, and `search_url` is `https://www.av01.media/cn/search?q=**&page=fypage`. `renderList` resolves the page from the page source, else from the passed URL, else `MY_PAGE`.
+- Cards: cover `800.webp` (`400.webp` for small), duration formatted `20h26m`/`48m12s`, views as `3.2万`, date from `published_time`. Card URL is the canonical site URL `…/cn/video/{id}/{slug}` so 原网页/收藏 stay valid; `idFrom(url,'video')` recovers the id.
+- State keys are prefixed `av01.`. Preview: `node tools/preview_av01.js` → `docs/dev/preview_av01.html`. Fixtures: `test/fixtures/av01_{home,latest,hottest,detail,similars,search,actresses,makers,tags,actress_videos,geo}.json` + `av01_master.m3u8` (real API responses, descriptions/translations trimmed to keep them small).
+
 ## Verifying changes
 
 ```
-node test/jable.test.js        # plus missav.test.js, jable_redesign.test.js, missav_plus.test.js, supjav.test.js
+node test/jable.test.js        # plus missav.test.js, jable_redesign.test.js, missav_plus.test.js, supjav.test.js, av01.test.js
 node tools/preview_supjav.js   # visual preview → docs/dev/preview_supjav.html
+node tools/preview_av01.js     # visual preview → docs/dev/preview_av01.html
 ```
 
-Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all five before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script plus `supjav_home/list/detail/cast/tag/player.html`) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
+Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all six before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script, the SupJav HTML pages, and the AV01 API JSON/m3u8 responses) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
 
 Reference material (read-only clones, never commit here): Hiker API docs at `~/code/developer-reference/Documents/docs/hikerview` (`help_api.md`, `help_js.md`, `help_rules.md`, `help_film_list_rules.md`), community sample rules at `~/code/developer-examples/hikerViewRules` (plaintext ES6 — adapt, don't copy verbatim), and the Android app source at `~/code/developer-reference/hikerView`. After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.
