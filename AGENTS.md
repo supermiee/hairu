@@ -7,7 +7,7 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
-- Ported apps: `jable`, `missav`. `hanime` is **not** ported yet — the old repo is `~/code/haikuo-miniapps`.
+- Ported apps: `jable`, `missav`, plus `jable_redesign` — **Jable+**, a redesigned UI layer that reuses `jable_core.js?v=5` (shares cache/verification state with the original). Original Jable and MissAV stay untouched for comparison.
 - Tests: `node test/jable.test.js`, `node test/missav.test.js` (one file per app).
 
 ## Critical: version bump
@@ -22,7 +22,8 @@ Clients cache modules by URL. Any code change requires bumping, together:
 
 ## Runtime environment (Hiker embedded JS engine)
 
-- Code is kept **ES5** (`var`, no arrow/template/let) for compatibility; the demo samples do use ES6, but stay ES5 here.
+- Code is kept **ES5** (`var`, no arrow/template/let) by deliberate conservative choice; the demo samples do use ES6, but stay ES5 here.
+- The engine is **Mozilla Rhino 1.7.13** run in ES6 mode (`JSEngine.java` does `rhino.setLanguageVersion(200)` = `Context.VERSION_ES6`; see `developer-reference/hikerView/app/build.gradle:211`). Rhino's ES6 is **partial**: arrow functions, `let`/`const`, destructuring, generators, `Symbol`, `Map`/`Set` work — **template literals (backticks), `Promise`, and `Proxy` do not**. So ES5 is not a hard requirement, but anything beyond that subset fails at runtime. Verify new syntax on-device (a `try/catch` probe rule) rather than trusting this clone, which may differ from the shipped APK.
 - File shape: IIFE, export at bottom via `module.exports = exported;` and `$.exports = exported;`.
 - Rule callbacks (`$().rule` / `.lazyRule`) run in an **isolated scope**: outer closures are invisible. Re-load the module inside the callback with the full HTTPS URL + `?v=`, and pass data through the params argument (`$('hiker://empty').rule(fn, params)` → `fn(params)`).
 - `requirejs` is **not always exposed** in rule callbacks. Always use `try { requirejs(url) } catch { $.require(url) }` with the **same remote URL** — never fall back to a local `hiker://files/rules/...` path (it usually doesn't exist and blanks the page). Wrap render bodies in try/catch and show the error via `renderError()` so failures aren't silent.
@@ -61,4 +62,4 @@ node test/jable.test.js
 
 Dependency-free smoke test: stubs Hiker globals, runs real code paths (home/list/detail/search/version consistency) for Jable. Extend it for each new app.
 
-Reference material: Hiker API docs at `~/code/Documents`, decoded community sample rules at `~/code/demo/master/Hiker` (base64-decoded). After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.
+Reference material (read-only clones, never commit here): Hiker API docs at `~/code/developer-reference/Documents/docs/hikerview` (`help_api.md`, `help_js.md`, `help_rules.md`, `help_film_list_rules.md`), community sample rules at `~/code/developer-examples/hikerViewRules` (plaintext ES6 — adapt, don't copy verbatim), and the Android app source at `~/code/developer-reference/hikerView`. After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.
