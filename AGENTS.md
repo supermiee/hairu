@@ -71,6 +71,7 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 - **女优目录行**: name, `N 条影片` and `N 出道` now live inside a *single* `<a>` (previously name/count were separate anchors). `parseDirectory()` still merges separate count anchors and additionally reads an inline count from the label.
 - **Detail metadata rows**: `<div class="text-secondary"><span>番号:</span> <span class="font-medium">VALUE</span> </div>` (value inline, sometimes a `<time>`; `标籤` may use a `/cn/tags/…` href). `og:description` is frequently empty now, so `parseDescription()` falls back to the `.line-clamp-2` block.
 - **Playback**: the m3u8 lives in a Dean-Edwards packer whose payload is itself base-N encoded (`eval(function(p,a,c,k,e,d){…}('e=\'8://7.6/5-4-3-2-1/d.0\';…',15,15,'m3u8|…'.split('|'),0,{}))`). The regex-based `unpackPacker()` + `parseQualities()` decode it; a real fragment is stored at `test/fixtures/missav_packed_script.html` so the test does not drift from reality. `directUrls` in the page points at tsyndicate API URLs (not m3u8) — don't use it for playback.
+- **详情页相似推荐只在前端**（已验证 3 个详情页）：右侧/底部 watch-next 列表由 Alpine + Recombee（`recommendItemsToItem`，scenario `internal-desktop-watch-next*`）异步拉取，静态 HTML 里只有 2 个 `<template x-for>` 占位壳（`:href`/`:data-src`/`item.*` 表达式，无真实 href/标题）。`parseCards()` 的 `/\/cn\//` 过滤会把它们滤掉，故 `detail.recommendations` 恒为空、详情页「猜你喜欢」区块不会渲染（按用户决定保留不动，等站点改为服务端渲染再接）。要自己造相似推荐时，可用的服务端渲染数据源是 `/cn/actresses/<slug>`、`/cn/genres/<slug>`、`/cn/tags/<slug>` 列表页。
 
 ## MissAV+ notes
 
