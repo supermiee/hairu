@@ -58,13 +58,13 @@
   {
     "title": "AV01",
     "author": "supermiee",
-    "version": 1,
+    "version": 2,
     "group": "开发测试",
     "type": "video",
     "url": "https://www.av01.media/cn",
     "search_url": "https://www.av01.media/cn/search?q=**&page=fypage",
-    "find_rule": "js:var pages;try{pages=requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=1');}catch(e){pages=$.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=1');}pages.renderHome();",
-    "searchFind": "js:var pages;try{pages=requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=1');}catch(e){pages=$.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=1');}pages.renderSearch(MY_URL);",
+    "find_rule": "js:var pages;try{pages=requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=2');}catch(e){pages=$.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=2');}pages.renderHome();",
+    "searchFind": "js:var pages;try{pages=requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=2');}catch(e){pages=$.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=2');}pages.renderSearch(MY_URL);",
     "detail_find_rule": "",
     "preRule": "",
     "ua": "PC_UA"

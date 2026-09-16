@@ -16,7 +16,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '1.0.0',
+        version: '1.1.0',
         source: 'https://www.av01.media',
         localePath: '/cn',
         lang: 'cn',
@@ -379,10 +379,50 @@
         return '线路';
     }
     /* 拼出「服务端会把 access_token 注入每段分片」的清单地址 */
-    function variantUrl(id, file, accessToken) {
-        var target = api('/videos/' + id + '/manifest/' + file);
+    function manifestUrl(id, file, accessToken) {
+        var target = /^https?:\/\//i.test(String(file || '')) ? String(file) : api('/videos/' + id + '/manifest/' + file);
         var sep = target.indexOf('?') >= 0 ? '&' : '?';
         return target + sep + 'access_token=' + encode(accessToken);
+    }
+    function variantUrl(id, file, accessToken) { return manifestUrl(id, file, accessToken); }
+    /* 把服务端 master.m3u8 改写成「每个 variant 都自带 access_token 的绝对地址」的 master。
+       站点前端就是这么做的（index-*.js 里把 master 换成 base64 data URI 交给播放器），
+       目的是让播放器自己做多码率自适应（ABR）；我们改写后落成本地 .m3u8 播放，效果等价。
+       直接给 3 条单码率清单会跳过 ABR，默认吃满 1080P，弱网就卡。 */
+    function buildMaster(text, id, accessToken) {
+        var lines = String(text || '').split(/\r?\n/), out = [];
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i], trimmed = line.replace(/^\s+|\s+$/g, '');
+            if (!trimmed) { out.push(line); continue; }
+            if (/#EXT-X-I-FRAME-STREAM-INF/i.test(trimmed)) {
+                out.push(trimmed.replace(/URI="([^"]+)"/i, function (all, uri) { return 'URI="' + manifestUrl(id, uri, accessToken) + '"'; }));
+                continue;
+            }
+            if (trimmed.charAt(0) === '#') { out.push(line); continue; }
+            out.push(manifestUrl(id, trimmed, accessToken));
+        }
+        return out.join('\n');
+    }
+    /* master 拉取失败时按已知的 sv1/sv2/sv3 兜底拼一份 */
+    function synthMaster(variants, id, accessToken) {
+        var lines = ['#EXTM3U', '#EXT-X-VERSION:3'];
+        for (var i = 0; i < variants.length; i++) {
+            if (!variants[i].height) continue;
+            lines.push('#EXT-X-STREAM-INF:BANDWIDTH=' + (variants[i].bandwidth || variants[i].height * 4000) + ',RESOLUTION=' + Math.round(variants[i].height * 16 / 9) + 'x' + variants[i].height);
+            lines.push(manifestUrl(id, variants[i].file, accessToken));
+        }
+        return lines.length > 2 ? lines.join('\n') : '';
+    }
+    /* 把 master 落到本地（几百字节）。海阔播放本地 m3u8 是官方支持的用法（见 help_js.md 的 cacheM3u8）。
+       返回 file:// 绝对路径；writeFile/getPath 不可用时返回空串，调用方回退到直连清单。 */
+    function localMaster(id, content) {
+        if (!content) return '';
+        try {
+            if (typeof writeFile !== 'function' || typeof getPath !== 'function') return '';
+            var target = 'hiker://files/cache/av01_master_' + id + '.m3u8';
+            writeFile(target, content);
+            return getPath(target) || '';
+        } catch (ignore) { return ''; }
     }
     function resolveMedia(id) {
         if (!id) return { ok: false, error: { message: '缺少视频 id' } };
@@ -396,12 +436,18 @@
         var variants = master.ok ? parseVariants(master.text) : [];
         if (!variants.length) variants = [{ height: 360, bandwidth: 0, file: 'index90-sv1-v1-a1.m3u8?ro=0' }, { height: 720, bandwidth: 0, file: 'index90-sv2-v1-a1.m3u8' }, { height: 1080, bandwidth: 0, file: 'index90-sv3-v1-a1.m3u8' }];
         variants = variants.sort(function (a, b) { return (b.height || b.bandwidth) - (a.height || a.bandwidth); });
+
+        var masterText = master.ok ? buildMaster(master.text, id, accessToken) : '';
+        if (!masterText) masterText = synthMaster(variants, id, accessToken);
+        var local = localMaster(id, masterText);
+
         var urls = [], names = [];
+        if (local) { urls.push(local); names.push('自动'); }
         for (var i = 0; i < variants.length; i++) {
-            urls.push(variantUrl(id, variants[i].file, accessToken));
+            urls.push(manifestUrl(id, variants[i].file, accessToken));
             names.push(variantLabel(variants[i]));
         }
-        return { ok: true, urls: urls, names: names, accessToken: accessToken };
+        return { ok: true, urls: urls, names: names, accessToken: accessToken, master: masterText, local: !!local, variants: variants };
     }
     function playerHeaders() { return { 'User-Agent': CONFIG.mobileUa, Referer: site() + '/' }; }
 
@@ -447,7 +493,8 @@
         parseVideo: parseVideo, parseVideoList: parseVideoList, parseVideoArray: parseVideoArray, paginationTotal: paginationTotal,
         home: home, feed: feed, search: search, directory: directory, videosBy: videosBy,
         detail: detail, similars: similars, parseVariants: parseVariants, variantLabel: variantLabel,
-        variantUrl: variantUrl, resolveMedia: resolveMedia, playerHeaders: playerHeaders,
+        manifestUrl: manifestUrl, variantUrl: variantUrl, buildMaster: buildMaster, synthMaster: synthMaster,
+        localMaster: localMaster, resolveMedia: resolveMedia, playerHeaders: playerHeaders,
         isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, addSearch: addSearch,
         listValue: listValue, setValue: setValue, readList: readList, writeList: writeList, clearLocal: clearLocal
     };

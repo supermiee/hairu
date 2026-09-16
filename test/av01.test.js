@@ -303,6 +303,47 @@ test('parseVariants：解析 master.m3u8 的分片清单与清晰度', function 
     assert.strictEqual(core.variantUrl(1, 'x.m3u8?ro=0', 'T'), 'https://www.av01.media/api/v1/videos/1/manifest/x.m3u8?ro=0&access_token=T');
 });
 
+test('buildMaster：把 master 改写为带 access_token 的绝对分片清单（ABR 用）', function () {
+    var text = core.buildMaster(FIXTURE_MASTER, 219346, 'TOK');
+    var lines = text.split('\n');
+    assert.strictEqual(lines[0], '#EXTM3U');
+    assert.ok(/#EXT-X-STREAM-INF:.*RESOLUTION=1920x1080/.test(text), 'STREAM-INF 标签应保留: ' + text.slice(0, 200));
+    assert.ok(lines.indexOf('https://www.av01.media/api/v1/videos/219346/manifest/index90-sv1-v1-a1.m3u8?ro=0&access_token=TOK') >= 0, 'sv1 未改写:\n' + text);
+    assert.ok(lines.indexOf('https://www.av01.media/api/v1/videos/219346/manifest/index90-sv3-v1-a1.m3u8?access_token=TOK') >= 0, 'sv3 未改写:\n' + text);
+    assert.strictEqual(lines.filter(function (l) { return l.trim() && l.charAt(0) !== '#' && l.indexOf('access_token=TOK') < 0; }).length, 0, '存在未注入 token 的地址');
+    /* 合成兜底 master */
+    var synth = core.synthMaster(core.parseVariants(FIXTURE_MASTER), 219346, 'TOK');
+    assert.strictEqual(core.parseVariants(synth).length, 3, '合成 master 变体数不对:\n' + synth);
+});
+
+test('resolveMedia：writeFile/getPath 可用时默认走本地 ABR master', function () {
+    store = {};
+    var written = {};
+    global.writeFile = function (path, content) { written[path] = content; };
+    global.getPath = function (path) { return 'file:///storage/emulated/0/Documents/' + path.split('/').pop(); };
+    try {
+        var media = core.resolveMedia(219346);
+        assert.ok(media.ok, '未解出播放清单');
+        assert.strictEqual(media.local, true, '未走本地 master');
+        assert.strictEqual(media.names[0], '自动', '默认线路名应为「自动」: ' + media.names);
+        assert.ok(/^file:\/\/.*av01_master_219346\.m3u8$/.test(media.urls[0]), '默认线路不是本地 m3u8: ' + media.urls[0]);
+        assert.deepStrictEqual(media.names.slice(1), ['1080P', '720P', '360P'], '手动线路名不对: ' + media.names);
+        var content = written['hiker://files/cache/av01_master_219346.m3u8'];
+        assert.ok(content && content.indexOf('RESOLUTION=') >= 0, '本地 master 内容不对');
+        assert.strictEqual(core.parseVariants(content).length, 3, '本地 master 变体数不对');
+        assert.ok(content.indexOf('access_token=TEST.ACCESS.TOKEN') >= 0, '本地 master 未注入 token');
+    } finally { delete global.writeFile; delete global.getPath; }
+});
+
+test('resolveMedia：无 writeFile 时回退直连分片清单', function () {
+    store = {};
+    var media = core.resolveMedia(219346);
+    assert.ok(media.ok, '未解出播放清单');
+    assert.strictEqual(media.local, false, '不应走本地 master');
+    assert.deepStrictEqual(media.names, ['1080P', '720P', '360P'], '回退线路名不对: ' + media.names);
+    assert.ok(/^https:\/\/www\.av01\.media\/api\/v1\/videos\/219346\/manifest\//.test(media.urls[0]), '回退地址不对: ' + media.urls[0]);
+});
+
 test('detail / similars / directory 解析真实接口数据', function () {
     var res = core.detail(219346);
     assert.ok(res.ok, 'detail 调用失败');
@@ -389,9 +430,9 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.strictEqual(entry.search_url, 'https://www.av01.media/cn/search?q=**&page=fypage', 'search_url 不对: ' + entry.search_url);
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=1', '内核引用应为 ?v=1，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=2', '内核引用应为 ?v=2，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=1') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=2') >= 0, '未引用内核');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
