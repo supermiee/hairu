@@ -39,12 +39,12 @@ global.setResult = function (r) { lastResult = r; };
 global.setHomeResult = function (r) { lastHome = r; };
 
 function thumb(id, title, dur) {
-    var parts = dur.split(':');
     return '<div @mouseenter="setPreview(\'' + id + '\')" class="thumbnail group">' +
         '<div class="relative aspect-w-16 aspect-h-9 rounded overflow-hidden shadow-lg">' +
         '<a href="https://missav.ws/cn/' + id + '#uuid_desktop-home" alt="' + id + '">' +
         '<img data-src="https://fourhoi.com/' + id + '/cover-t.jpg" src="https://fourhoi.com/' + id + '/cover-t.jpg">' +
-        '<span class="absolute bottom-1 right-1"><span x-text="h">' + parts[0] + '</span>:<span x-text="m">' + parts[1] + '</span>:<span x-text="s">' + parts[2] + '</span></span>' +
+        '<span class="absolute bottom-1 right-1 rounded-lg px-2 py-1 text-xs text-nord5 bg-gray-800 bg-opacity-75">' +
+        '\n                        ' + dur + '\n                    </span>' +
         '</a></div>' +
         '<div class="my-2 text-sm text-nord4 truncate"><a x-text="item.full_title" href="https://missav.ws/cn/' + id + '#uuid_desktop-home">' + title + '</a></div>' +
         '</div>';

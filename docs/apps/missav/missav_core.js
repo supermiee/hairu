@@ -1,7 +1,7 @@
 /* MissAV 完整版公共内核。部署到 hiker://files/rules/missav/ 后由 $.require() 引用。 */
 (function () {
     var CONFIG = {
-        version: '1.0.0',
+        version: '1.1.0',
         source: 'https://missav.ws',
         /* Public site domains observed in the site's own redirect script. */
         sources: ['https://missav.ws', 'https://missav.ai', 'https://missav123.com'],
@@ -197,9 +197,10 @@
         for (var i = 0; i < items.length; i++) { var value = items[i]; if (value && !seen[value[key]]) { seen[value[key]] = true; result.push(value); } }
         return result;
     }
-    /* 新版前端卡片时长由多个 <span x-text> 拼成：<span>3</span>:<span>02</span>:<span>13</span> */
+    /* 新版前端卡片时长由多个 <span x-text> 拼成：<span>3</span>:<span>02</span>:<span>13</span>；
+       再新版直接输出一个带换行/缩进的普通 span，故两种都要兼容（否则时长为空） */
     function cardDuration(block) {
-        var plain = />(\d{1,2}:\d{2}:\d{2})</.exec(block);
+        var plain = />\s*(\d{1,2}:\d{2}:\d{2})\s*</.exec(block);
         if (plain) return plain[1];
         var parts = /<span[^>]*>\s*(\d{1,2})\s*<\/span>\s*:\s*<span[^>]*>\s*(\d{2})\s*<\/span>\s*:\s*<span[^>]*>\s*(\d{2})\s*<\/span>/i.exec(block);
         return parts ? (parts[1] + ':' + parts[2] + ':' + parts[3]) : '';
@@ -222,6 +223,16 @@
         var match = String(html || '').match(/([\d,]+)\s*条影片/);
         return match ? match[1].replace(/,/g, '') : '';
     }
+    /* 别名：与 jable 内核接口保持一致，重构版页面层按同名调用 */
+    function parseTotal(html) { return parseCount(html); }
+    /* 列表统一入口：命中缓存则直接用，避免页面层各写一遍 fetchCached + parseCards */
+    function getList(url, marker, limit) {
+        var page = fetchCached(url, { marker: marker || 'thumbnail' }, 300);
+        if (!page.ok) return page;
+        var items = parseCards(page.html, page.url);
+        if (limit > 0) items = items.slice(0, limit);
+        return { ok: true, page: page, items: items, total: parseTotal(page.html) };
+    }
     /* 目录页每条有两类锚点（名称 + 数量），按出现顺序把数量并到上一条 */
     function parseDirectory(html, baseUrl, pathPattern, exclude) {
         var source = String(html || '');
@@ -238,7 +249,9 @@
                 if (result.length) result[result.length - 1].count = countMatch[1].replace(/,/g, '') + ' 部';
                 continue;
             }
-            result.push({ url: url, title: label.replace(/\s*\d[\d,]*\s*(?:条影片|videos?).*$/i, '').trim(), count: '' });
+            /* 女优页把名称和数量放在同一个 <a> 里（名称 + 5669 条影片 + 出道年），也从标签里兜底取数量 */
+            var inlineCount = /(\d[\d,]*)\s*(?:条影片|videos?)/i.exec(label);
+            result.push({ url: url, title: label.replace(/\s*\d[\d,]*\s*(?:条影片|videos?).*$/i, '').trim(), count: inlineCount ? (inlineCount[1].replace(/,/g, '') + ' 部') : '' });
         }
         return unique(result, 'url');
     }
@@ -329,10 +342,13 @@
         var match = /<div[^>]*class=["'][^"']*\bline-clamp-2\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i.exec(String(html || ''));
         return match ? text(match[1]) : '';
     }
-    function parseDetail(html, baseUrl) {
+    /* 兼容两种调用：老的 (html, baseUrl) 与页面对象 {html, url}（重构版页面层使用） */
+    function parseDetail(input, baseUrl) {
+        var page = (input && typeof input === 'object' && typeof input.html === 'string') ? input : { html: String(input || ''), url: baseUrl };
+        var html = page.html, url = page.url || baseUrl;
         var chineseTitle = meta(html, 'og:title') || meta(html, 'twitter:title');
         return {
-            url: baseUrl,
+            url: url,
             /* The /cn page exposes the localized title through og:title; keep the Japanese field separately. */
             title: chineseTitle || field(html, '标题'),
             image: meta(html, 'og:image'),
@@ -340,14 +356,32 @@
             releaseDate: field(html, '发行日期') || meta(html, 'og:video:release_date'),
             duration: duration(meta(html, 'og:video:duration')),
             code: field(html, '番号'), originalTitle: field(html, '标题'),
-            actors: fieldLinks(html, '女优', baseUrl), maleActors: fieldLinks(html, '男优', baseUrl).concat(fieldLinks(html, '男優', baseUrl)), genres: fieldLinks(html, '类型', baseUrl),
-            series: fieldLinks(html, '系列', baseUrl), makers: fieldLinks(html, '发行商', baseUrl),
-            directors: fieldLinks(html, '导演', baseUrl), labels: fieldLinks(html, '标籤', baseUrl),
-            qualities: parseQualities(html), mediaUrl: parseM3u8(html), directUrls: parseDirectUrls(html), recommendations: parseCards(html, baseUrl, 12)
+            actors: fieldLinks(html, '女优', url), maleActors: fieldLinks(html, '男优', url).concat(fieldLinks(html, '男優', url)), genres: fieldLinks(html, '类型', url),
+            series: fieldLinks(html, '系列', url), makers: fieldLinks(html, '发行商', url),
+            directors: fieldLinks(html, '导演', url), labels: fieldLinks(html, '标籤', url),
+            qualities: parseQualities(html), mediaUrl: parseM3u8(html), directUrls: parseDirectUrls(html), recommendations: parseCards(html, url, 12)
         };
     }
     function readList(name) { try { return storage0.getMyVar(cacheKey(name)) || []; } catch (ignore) { return []; } }
     function writeList(name, list) { try { storage0.putMyVar(cacheKey(name), list); } catch (ignore) {} return list; }
+    /* 与 jable 内核同名的存取接口，供重构版页面层使用 */
+    function listValue(name, fallback) {
+        try { var value = storage0.getMyVar(cacheKey(name)); return (value === null || typeof value === 'undefined') ? fallback : value; } catch (ignore) { return fallback; }
+    }
+    function setValue(name, value) { try { storage0.putMyVar(cacheKey(name), value); } catch (ignore) {} return value; }
+    function addSearch(keyword) {
+        keyword = text(keyword);
+        if (!keyword) return [];
+        var history = listValue('searches', []);
+        var result = [keyword];
+        for (var i = 0; i < history.length; i++) if (history[i] !== keyword) result.push(history[i]);
+        return setValue('searches', result.slice(0, 30));
+    }
+    function clearLocal() {
+        var keys = ['favorites', 'history', 'searches', 'diagnostics'];
+        for (var i = 0; i < keys.length; i++) setValue(keys[i], []);
+        clearPageCache();
+    }
     function isFavorite(url) { var list = readList('favorites'); for (var i = 0; i < list.length; i++) if (list[i].url === url) return true; return false; }
     function toggleFavorite(item) {
         var list = readList('favorites'), next = [], exists = false;
@@ -380,7 +414,7 @@
         if (page.cookie) result.Cookie = page.cookie;
         return result;
     }
-    var exported = { config: CONFIG, text: text, absolute: absolute, request: request, fetchCached: fetchCached, fetchManyCached: fetchManyCached, parseCards: parseCards, parseCount: parseCount, parseGenres: parseGenres, parseActresses: parseActresses, parseQualities: parseQualities, parseDetail: parseDetail, playerHeaders: playerHeaders, getPlayQuality: getPlayQuality, setPlayQuality: setPlayQuality, selectStream: selectStream, isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, readList: readList, writeList: writeList, clearPageCache: clearPageCache };
+    var exported = { config: CONFIG, text: text, absolute: absolute, request: request, fetchCached: fetchCached, fetchManyCached: fetchManyCached, getList: getList, parseCards: parseCards, parseCount: parseCount, parseTotal: parseTotal, parseGenres: parseGenres, parseActresses: parseActresses, parseQualities: parseQualities, parseDetail: parseDetail, playerHeaders: playerHeaders, getPlayQuality: getPlayQuality, setPlayQuality: setPlayQuality, selectStream: selectStream, isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, addSearch: addSearch, listValue: listValue, setValue: setValue, readList: readList, writeList: writeList, clearLocal: clearLocal, clearPageCache: clearPageCache };
     if (typeof module !== 'undefined' && module.exports) module.exports = exported;
     if (typeof $ !== 'undefined') $.exports = exported;
 })();
