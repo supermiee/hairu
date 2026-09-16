@@ -4,7 +4,7 @@
  * 设计参照 jable.tv 首页分区：精選/最近更新/全新上市/熱門/主題/女優。
  */
 (function () {
-    var MODULE_VERSION = '1';
+    var MODULE_VERSION = '2';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/jable_redesign/jable_redesign_pages.js?v=' + MODULE_VERSION;
     var CORE_URL = PUBLISH_BASE + 'apps/jable/jable_core.js?v=5';
@@ -80,8 +80,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=1').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=1').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=2').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=2').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -92,8 +92,8 @@
     }
     function pageRoute(name, params) {
         return $('hiker://empty').rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=1').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=1').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=2').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=2').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeModels(url, title) {
@@ -104,8 +104,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=1').renderModels(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=1').renderModels(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=2').renderModels(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_pages.js?v=2').renderModels(payload); }
         }, params);
     }
     function routeDetail(item) {
@@ -120,7 +120,7 @@
         result.push({
             title: head,
             url: moreRoute || 'hiker://empty',
-            col_type: 'long_text',
+            col_type: 'rich_text',
             extra: { textSize: 17, lineVisible: false }
         });
     }
@@ -207,7 +207,7 @@
             var tab = HOME_TABS[i];
             var title = i === active ? tab.title : tab.title;
             result.push({
-                title: (i === active ? '<font color="#FFFFFF">' + title + '</font>' : title),
+                title: (i === active ? '\u201C\u201C\u201D\u201D' + title : title),
                 url: setStateButton('tab', i),
                 col_type: 'scroll_button',
                 extra: { backgroundColor: i === active ? ACCENT : '' }
