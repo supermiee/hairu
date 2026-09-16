@@ -283,6 +283,30 @@ test('收藏/搜索历史写入内核本地列表', function () {
     assert.strictEqual(core.listValue('searches', []).length, 0, 'clearLocal 未清空搜索历史');
 });
 
+test('每个 pageRoute 名称都已在路由表注册（防止「未注册的页面」）', function () {
+    var source = fs.readFileSync(PAGES_PATH, 'utf8');
+    var names = (source.match(/pageRoute\('([A-Za-z]+)'/g) || []).map(function (s) { return /'([A-Za-z]+)'/.exec(s)[1]; });
+    assert.ok(names.length >= 5, '未扫描到 pageRoute 名称');
+    var mapBlock = /var handler = \(\{([\s\S]*?)\}\)/.exec(source);
+    assert.ok(mapBlock, '未找到路由表');
+    var registered = {};
+    (mapBlock[1].match(/([A-Za-z]+)\s*:/g) || []).forEach(function (s) { registered[s.replace(/\s*:$/, '')] = 1; });
+    names.forEach(function (n) { assert.ok(registered[n], '路由表缺少: ' + n); });
+    assert.ok(names.indexOf('renderPlaySettings') >= 0, '设置页应链接到 renderPlaySettings');
+});
+
+test('播放设置页可从路由进入，且每个已注册路由都能渲染（不报未注册）', function () {
+    store = {};
+    var names = ['renderDetail', 'renderLocalList', 'renderSettings', 'renderPlaySettings', 'renderVerification', 'renderDirectory'];
+    names.forEach(function (name) {
+        lastResult = null;
+        pages.renderRouter({ name: name, params: { url: 'https://missav.ws/cn/snos-313', key: 'favorites', title: 'x', kind: 'actresses' } });
+        assert.ok(Array.isArray(lastResult) && lastResult.length, name + ' 未输出卡片');
+        assert.ok(titles(lastResult).indexOf('未注册的页面') < 0, name + ' 未注册');
+        assert.ok(titles(lastResult).indexOf('渲染失败') < 0, name + ' 渲染失败: ' + titles(lastResult));
+    });
+});
+
 test('local 列表页可渲染（收藏/历史共用）', function () {
     store = {};
     core.setValue('favorites', [{ title: 'SNOS-313 x', url: 'https://missav.ws/cn/snos-313', image: '' }]);

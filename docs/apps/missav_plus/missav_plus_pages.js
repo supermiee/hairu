@@ -4,7 +4,7 @@
  * 设计参照 missav.ws 首页分区：最近更新 / 新作上市 / 中文字幕；文案用简体（站点为简体）。
  */
 (function () {
-    var MODULE_VERSION = '1';
+    var MODULE_VERSION = '2';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/missav_plus/missav_plus_pages.js?v=' + MODULE_VERSION;
     var CORE_URL = PUBLISH_BASE + 'apps/missav/missav_core.js?v=5';
@@ -69,8 +69,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=1').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=1').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=2').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=2').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -81,8 +81,8 @@
     }
     function pageRoute(name, params, flags) {
         return $('hiker://empty' + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=1').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=1').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=2').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=2').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function directoryRoute(pageSource, params) {
@@ -90,8 +90,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=1').renderDirectory(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=1').renderDirectory(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=2').renderDirectory(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=2').renderDirectory(payload); }
         }, params);
     }
     /* 类型目录站点只有一页；女优目录是 ?page=N，需要可翻页的 pageSource */
@@ -317,6 +317,7 @@
                 renderDetail: renderDetail,
                 renderLocalList: renderLocalList,
                 renderSettings: renderSettings,
+                renderPlaySettings: renderPlaySettings,
                 renderVerification: renderVerificationPage,
                 renderDirectory: renderDirectoryPage
             })[params && params.name];

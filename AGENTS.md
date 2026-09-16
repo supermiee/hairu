@@ -75,7 +75,7 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 
 ## MissAV+ notes
 
-- `docs/apps/missav_plus/missav_plus_pages.js` (v1) + shared `missav_core.js?v=5`. UI mirrors Jable+ v10: 7 top tabs (首页/最近更新/新作上市/热门/女优/类型/我的), 玫红 `#E91E63` selection, home sections with `pic_1` first card + `movie_2` two-column, `text_1` clickable section titles with `更多 ›`, detail hero `pic_1_full` → meta chips → play → favorite/原网页 → 演员/类型/系列/发行商/导演/标签 chips → 猜你喜欢. Strings are Simplified (site is Simplified).
+- `docs/apps/missav_plus/missav_plus_pages.js` (see its `MODULE_VERSION`) + shared `missav_core.js?v=5`. UI mirrors Jable+ v10: 7 top tabs (首页/最近更新/新作上市/热门/女优/类型/我的), 玫红 `#E91E63` selection, home sections with `pic_1` first card + `movie_2` two-column, `text_1` clickable section titles with `更多 ›`, detail hero `pic_1_full` → meta chips → play → favorite/原网页 → 演员/类型/系列/发行商/导演/标签 chips → 猜你喜欢. Strings are Simplified (site is Simplified).
 - Core additions made for it (backward compatible, both apps' tests cover them): `getList(url, marker, limit)`, `parseTotal`, `listValue`/`setValue`, `addSearch`, `clearLocal`, and a `parseDetail` that accepts a `{html, url}` page object. `getList` treats `limit <= 0` as "all" (the raw `parseCards` slices at 0).
 - State keys are prefixed `msp.` (original MissAV uses `missav.ui.`), so both can be installed side by side.
 - Preview: `node tools/preview_missav.js` → `docs/dev/preview_missav.html` (home/hot/actress/mine tabs + detail).
