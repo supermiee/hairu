@@ -7,21 +7,24 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
-- Ported apps (4 total, each a self-contained single module — core + pages in its own folder): `jable_redesign` — **Jable** (`jable_redesign_core.js?v=2` + `jable_redesign_pages.js`), `missav_plus` — **MissAV** (`missav_plus_core.js?v=2` + `missav_plus_pages.js`), `supjav` — **SupJav**, `av01` — **AV01**. The historical `jable`/`missav` originals (and the shared-core arrangement where the `+` UIs reused them) were removed 2026-09; there is no original/`+` split any more and no backward-compatibility burden — **any core change just bumps that app's pages + core `?v=` together**.
+- Ported apps (4 total, each a self-contained single module — core + pages in its own folder): `jable_redesign` — **Jable** (`jable_redesign_core.js` + `jable_redesign_pages.js`), `missav_plus` — **MissAV** (`missav_plus_core.js` + `missav_plus_pages.js`), `supjav` — **SupJav**, `av01` — **AV01**. The historical `jable`/`missav` originals (and the shared-core arrangement where the `+` UIs reused them) were removed 2026-09; there is no original/`+` split any more and no backward-compatibility burden — **any core change just bumps that app's pages + core `?v=` together**.
 - **SupJav** (`docs/apps/supjav/supjav_core.js` + `supjav_pages.js`), v10 UI style, Simplified strings.
 - New site: `av01` — **AV01** (`docs/apps/av01/av01_core.js` + `av01_pages.js`), single-module app, v10 UI style, Simplified strings. Unlike the others it is a **React SPA** whose HTML is an empty shell, so everything is parsed from its REST JSON API (`/api/v1/...`). See "AV01 notes".
 - Tests (one file per app): `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js`, `node test/av01.test.js`.
-- Versioning per app: a pages-only change bumps that app's `MODULE_VERSION` + subscription `version` + every hardcoded `?v=` of the *pages* URL; touching the core bumps the core `?v=` too (there is no stale-cache escape hatch any more).
+- Versioning is repo-wide and unified: one baseline number for all 4 apps, used by the subscription `version`, every `MODULE_VERSION`, every `?v=` (pages + core) and every core `CONFIG.version`. Bump all four together (see "Critical: version bump").
 
-## Critical: version bump
+## Critical: version bump (unified baseline)
 
-Clients cache modules by URL. Any code change requires bumping, together:
+Clients cache modules by URL, and all four apps share **one unified baseline version** (currently **16**), so a release keeps them lock-stepped:
 
-1. `<app>` entry `version` in `docs/subscription.json`
-2. `MODULE_VERSION` at the top of `docs/apps/<app>/<app>_pages.js`
-3. Every hardcoded `?v=N` literal (inside `$().rule()`/`lazyRule()` callback strings that `require`s the module/core)
+1. `version` of **all four** entries in `docs/subscription.json`
+2. `MODULE_VERSION` at the top of **each** `docs/apps/<app>/<app>_pages.js`
+3. Every hardcoded `?v=N` literal — both the pages URL and the core URL, in every `$().rule()`/`lazyRule()` callback string and in `CORE_URL`
+4. `CONFIG.version` in **each** `<app>_core.js` (displayed in the settings page, so it must match the baseline too)
 
-Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module without `?v=`.
+Bump **all four apps together** to the new number even if only one app's code changed; that is what "unified" means here and it keeps the invariant checkable. `node test/<app>.test.js` enforces it per app and `test/missav_plus.test.js` has a repo-wide guard (all four subscription versions + `MODULE_VERSION` + `?v=` literals equal).
+
+Baseline number rule: **never reset to a number that was ever published** (a client may still have that URL's old content cached — e.g. `av01_core.js?v=1` predates `buildMaster()`); always move forward. Never `requirejs` a module without `?v=`.
 
 ## Runtime environment (Hiker embedded JS engine)
 
@@ -77,14 +80,14 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 
 ## MissAV notes
 
-- `docs/apps/missav_plus/missav_plus_pages.js` (see its `MODULE_VERSION`) + `missav_plus_core.js?v=2` (same folder). UI mirrors Jable v10: 7 top tabs (首页/最近更新/新作上市/热门/女优/类型/我的), 玫红 `#E91E63` selection, home sections with `pic_1` first card + `movie_2` two-column, `text_1` clickable section titles with `更多 ›`, detail hero `pic_1_full` → meta chips → play → favorite/原网页 → 演员/类型/系列/发行商/导演/标签 chips → 猜你喜欢. Strings are Simplified (site is Simplified).
+- `docs/apps/missav_plus/missav_plus_pages.js` (see its `MODULE_VERSION`) + `missav_plus_core.js` (same folder, same unified `?v=` as the pages). UI mirrors Jable v10: 7 top tabs (首页/最近更新/新作上市/热门/女优/类型/我的), 玫红 `#E91E63` selection, home sections with `pic_1` first card + `movie_2` two-column, `text_1` clickable section titles with `更多 ›`, detail hero `pic_1_full` → meta chips → play → favorite/原网页 → 演员/类型/系列/发行商/导演/标签 chips → 猜你喜欢. Strings are Simplified (site is Simplified).
 - Core additions made for it (backward compatible, both apps' tests cover them): `getList(url, marker, limit)`, `parseTotal`, `listValue`/`setValue`, `addSearch`, `clearLocal`, and a `parseDetail` that accepts a `{html, url}` page object. `getList` treats `limit <= 0` as "all" (the raw `parseCards` slices at 0).
 - State keys are prefixed `msp.`; favorites/history/search live in the same core.
 - Preview: `node tools/preview_missav.js` → `docs/dev/preview_missav.html` (home/hot/actress/mine tabs + detail).
 
 ## SupJav notes
 
-- `docs/apps/supjav/supjav_pages.js` (see its `MODULE_VERSION`) + `supjav_core.js?v=1` (same folder). 7 top tabs: 首页/热门/有码/无码/女优/分类/我的, 玫红 `#E91E63` selection, v10 home (first card `pic_1`, rest `movie_2`, `text_1` clickable section titles with `更多 ›`), detail hero `pic_1_full` → meta chips → accent play → favorite/原网页 → 类别/制作商/女优 chips → 猜你喜欢. Strings Simplified (site locale `/zh` is Simplified).
+- `docs/apps/supjav/supjav_pages.js` (see its `MODULE_VERSION`) + `supjav_core.js` (same folder, same unified `?v=` as the pages). 7 top tabs: 首页/热门/有码/无码/女优/分类/我的, 玫红 `#E91E63` selection, v10 home (first card `pic_1`, rest `movie_2`, `text_1` clickable section titles with `更多 ›`), detail hero `pic_1_full` → meta chips → accent play → favorite/原网页 → 类别/制作商/女优 chips → 猜你喜欢. Strings Simplified (site locale `/zh` is Simplified).
 - **Use the `/zh` locale** (`https://supjav.com/zh/...`): qTranslate serves Chinese titles, category names (有码/无码/素人/中文字幕/无码破解), cast and tags. Card hrefs on `/zh` already carry the `/zh/` prefix.
 - **Cards**: `<div class="post"><a class="img" href><img data-original|src></a><div class="con"><h3><a>TITLE</a></h3><div class="meta">DATE<span class="date">N Views</span></div></div></div>`. Grid cards use a base64 `src` placeholder + `data-original` (lazy); the home slider uses a direct `src`. `parseCards()` matches `<div class="post">…<div class="meta">…</div>` (no duration field — show date/views instead).
 - **Home is server-rendered in sections** `<div class="archive-title">` (h1 title + optional h1 `(count)` + `a.more`) followed by `.posts`. `parseHomeSections()` splits on `archive-title` so each chunk holds exactly one section; section 1 is the *Week's Popular* swiper (~18 slides).
@@ -113,7 +116,7 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
   1. `GET {cdn}/api/v1/videos/{id}/cdn-access?token_v2=&expires=&ip=` where `{cdn}` = `https://customers.iw01.xyz` → `{access_token}` (a JWT whose `sub` is the storage prefix; `is_hot:true` means the IP claim is **not** enforced, so it works from any client).
   2. `GET https://www.av01.media/api/v1/videos/{id}/manifest/master.m3u8` (public, no token) → variants `index90-sv1-v1-a1.m3u8` (360p) / `sv2` (720p) / `sv3` (1080p) with `RESOLUTION`.
   3. `GET https://www.av01.media/api/v1/videos/{id}/manifest/<variant>?access_token=<token>` — the **API** side then rewrites the playlist so every `#EXT-X-MAP`/segment URL points at `customers.iw01.xyz/fmp4/...` **with the token baked in**. The bare `customers` variant playlist returns `403 Forbidden Resource Pattern`, and the master's relative variants carry no token, so neither can be handed to the player raw.
-  4. **Hand the player a master, not three single-bitrate playlists** (v1.1.0 fix). Giving 3 fixed variant URLs skips ABR and forces 1080P first, which stutters on weak links (user report: speed meter oscillating 0↔1 MB/s, web is fine). Instead: fetch `master.m3u8`, rewrite every variant line (and `#EXT-X-I-FRAME-STREAM-INF` `URI=`) to `{apiBase}/api/v1/videos/{id}/manifest/<file>?access_token=<token>` — i.e. `buildMaster()` — write it to `hiker://files/cache/av01_master_<id>.m3u8` and play the `getPath()` `file://…` path as the `自动` line (single-quality variants stay as manual lines). This mirrors the site's own `Lce()` in `index-*.js`, which does the same rewrite into a base64 `data:` URI so hls.js can ABR. Local `file://` m3u8 playback is a documented Hiker feature (`cacheM3u8`, help_js.md). `localMaster()` no-ops when `writeFile`/`getPath` are missing (Node tests) and `resolveMedia` then falls back to the direct variant URLs.
+  4. **Hand the player a master, not three single-bitrate playlists** (ABR-master fix). Giving 3 fixed variant URLs skips ABR and forces 1080P first, which stutters on weak links (user report: speed meter oscillating 0↔1 MB/s, web is fine). Instead: fetch `master.m3u8`, rewrite every variant line (and `#EXT-X-I-FRAME-STREAM-INF` `URI=`) to `{apiBase}/api/v1/videos/{id}/manifest/<file>?access_token=<token>` — i.e. `buildMaster()` — write it to `hiker://files/cache/av01_master_<id>.m3u8` and play the `getPath()` `file://…` path as the `自动` line (single-quality variants stay as manual lines). This mirrors the site's own `Lce()` in `index-*.js`, which does the same rewrite into a base64 `data:` URI so hls.js can ABR. Local `file://` m3u8 playback is a documented Hiker feature (`cacheM3u8`, help_js.md). `localMaster()` no-ops when `writeFile`/`getPath` are missing (Node tests) and `resolveMedia` then falls back to the direct variant URLs.
   - `videos/{id}/token` and `videos/{id}/playlist` also exist (`playlist` returns a base64 data-URI m3u8), but `cdn-access` + `master.m3u8` above is the working path.
   - Curl verification of the ABR chain: the rewritten master's variant URLs each return `#EXT-X-MAP:URI="…access_token=…"` and a range request on a segment returns `206`.
 - Segment requests work with any/no `Referer` (only the token matters), so `playerHeaders()` just sends the mobile UA + site Referer.

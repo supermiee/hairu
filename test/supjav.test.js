@@ -386,10 +386,11 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     assert.ok(entry.find_rule.indexOf('/apps/supjav/') >= 0, 'find_rule 未指向 supjav');
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.ok(entry.search_url.indexOf('https://supjav.com/zh/?s=**') >= 0, 'search_url 不对: ' + entry.search_url);
+    /* 统一基线版本：所有 ?v= 字面量（pages 与 core）都必须等于基线 */
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=2', '内核引用应为 ?v=2，出现 ' + lit);
+        assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=2') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=16') >= 0, '未引用内核');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

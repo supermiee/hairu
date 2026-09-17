@@ -442,10 +442,11 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     assert.ok(entry.find_rule.indexOf('/apps/av01/') >= 0, 'find_rule 未指向 av01');
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.strictEqual(entry.search_url, 'https://www.av01.media/cn/search?q=**&page=fypage', 'search_url 不对: ' + entry.search_url);
+    /* 统一基线版本：所有 ?v= 字面量（pages 与 core）都必须等于基线 */
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=7', '内核引用应为 ?v=3，出现 ' + lit);
+        assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16') >= 0, '未引用内核');
 });
 
 test('没有 1080P 的影片：档位只按真实存在的给，且裁到空时不会产出空清单', function () {

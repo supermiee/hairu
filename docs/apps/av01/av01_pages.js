@@ -6,10 +6,10 @@
  * 文案为简体中文（站点 /cn 为简体）。
  */
 (function () {
-    var MODULE_VERSION = '7';
+    var MODULE_VERSION = '16';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/av01/av01_pages.js?v=' + MODULE_VERSION;
-    var CORE_URL = PUBLISH_BASE + 'apps/av01/av01_core.js?v=7';
+    var CORE_URL = PUBLISH_BASE + 'apps/av01/av01_core.js?v=16';
 
     var ACCENT = '#E91E63';
     var SITE = 'https://www.av01.media/cn';
@@ -93,8 +93,8 @@
     }
     function routeList(url, title, flags) {
         return $('hiker://empty#' + pagedSource(url) + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=7').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=7').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=16').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=16').renderList(payload); }
         }, { url: url, title: title || '影片列表' });
     }
     function routeSearch(keyword) { return routeList(searchUrl(keyword), '搜索：' + keyword); }
@@ -109,8 +109,8 @@
     }
     function pageRoute(name, params, flags) {
         return $('hiker://empty' + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=7').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=7').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=16').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=16').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeDetail(item) {
@@ -403,8 +403,8 @@
     function favoriteToggle(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16'); }
             var id = 'fav:' + payload.url;
             var added = app.toggleFavorite(payload);
             var toast = 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -435,7 +435,7 @@
         try { searchHistory = app.listValue('searches', []) || []; } catch (ignore) { searchHistory = []; }
         try { diagnostics = app.listValue('diagnostics', []) || []; } catch (ignoreDiag) { diagnostics = []; }
         setResult([
-            { title: '设置与诊断', desc: 'AV01 v' + MODULE_VERSION + ' · 内核 v' + app.config.version, col_type: 'long_text', extra: { textSize: 19, lineVisible: false } },
+            { title: '设置与诊断', desc: 'AV01 · 统一基线 v' + MODULE_VERSION, col_type: 'long_text', extra: { textSize: 19, lineVisible: false } },
             { title: '📡 验证并同步（站点若启用 Cloudflare 人机验证时使用）', url: routeVerification(), col_type: 'text_center_1' },
             { title: '搜索历史：' + (searchHistory.join(' · ') || '暂无'), col_type: 'text_1' },
             { title: '请求诊断：' + (diagnostics.length ? (diagnostics.length + ' 条') : '暂无'), desc: diagnostics.length ? JSON.stringify(diagnostics[0]).slice(0, 200) : '', col_type: 'long_text', extra: { textSize: 13, lineVisible: false } },
@@ -446,8 +446,8 @@
                         content: '将清除缓存、收藏与历史等本地数据，确定继续？',
                         confirm: $.toString(function () {
                             var app2;
-                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7'); }
-                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7'); }
+                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16'); }
+                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16'); }
                             app2.clearLocal();
                             try { refreshPage(false); } catch (ignoreRefresh) {}
                             return 'toast://已清除';
@@ -456,7 +456,7 @@
                     });
                     return 'hiker://empty';
                 }
-                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7').clearLocal(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16').clearLocal(); }
                 refreshPage(false);
                 return 'toast://已清除';
             }), col_type: 'text_center_1' }
@@ -470,7 +470,7 @@
             { title: '打开验证网页', url: SITE, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: SITE, canBack: true } },
             { title: '第二步：验证成功后，点此返回并刷新', url: $('hiker://empty#noLoading#').lazyRule(function () {
                 try { putVar('av01.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=16').clearPageCache(); }
                 back(true);
                 return 'toast://已记录验证状态，请刷新';
             }), col_type: 'scroll_button', extra: { backgroundColor: ACCENT } }
