@@ -14,7 +14,7 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 
 ## Critical: version bump (unified baseline)
 
-Clients cache modules by URL, and all five apps share **one unified baseline version** (currently **18**), so a release keeps them lock-stepped:
+Clients cache modules by URL, and all five apps share **one unified baseline version** (currently **19**), so a release keeps them lock-stepped:
 
 1. `version` of **all five** entries in `docs/subscription.json`
 2. `MODULE_VERSION` at the top of **each** `docs/apps/<app>/<app>_pages.js`
@@ -60,6 +60,7 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 - Detail: `og:title`/`og:image` only; the `meta description` is the site's generic slogan, so `detailDescription()` filters it to `''`. Playable m3u8 is the first `m3u8|mp4` in the HTML (CDN needs no special headers).
 - Jable sits behind Cloudflare: core has `isHardBlock` short-circuit + `fetchCodeByWebView` fallback + `jable.webviewMode` flag set by「验证并同步」. `isUsableHtml` lets a page-specific `marker` win over generic CF keywords.
 - Playback item is a JSON payload `{urls,names,headers}`; set `extra.id = detail.url` so progress is remembered.
+- **Page-load (2026-09)**: `requestByWebView` passes `CONFIG.blockRules` (images/CSS/fonts/media) to `fetchCodeByWebView` so the CF WebView reaches `onPageFinished` sooner; playback m3u8 is parsed locally from the detail HTML, so there is no eager resolve to defer. Guarded by a source-scan test in `test/jable_redesign.test.js`.
 
 ## MissAV site notes (hard-earned)
 
@@ -76,6 +77,7 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 - **Detail metadata rows**: `<div class="text-secondary"><span>番号:</span> <span class="font-medium">VALUE</span> </div>` (value inline, sometimes a `<time>`; `标籤` may use a `/cn/tags/…` href). `og:description` is frequently empty now, so `parseDescription()` falls back to the `.line-clamp-2` block.
 - **Playback**: the m3u8 lives in a Dean-Edwards packer whose payload is itself base-N encoded (`eval(function(p,a,c,k,e,d){…}('e=\'8://7.6/5-4-3-2-1/d.0\';…',15,15,'m3u8|…'.split('|'),0,{}))`). The regex-based `unpackPacker()` + `parseQualities()` decode it; a real fragment is stored at `test/fixtures/missav_packed_script.html` so the test does not drift from reality. `directUrls` in the page points at tsyndicate API URLs (not m3u8) — don't use it for playback.
 - **详情页相似推荐只在前端**（已验证 3 个详情页）：右侧/底部 watch-next 列表由 Alpine + Recombee（`recommendItemsToItem`，scenario `internal-desktop-watch-next*`）异步拉取，静态 HTML 里只有 2 个 `<template x-for>` 占位壳（`:href`/`:data-src`/`item.*` 表达式，无真实 href/标题）。`parseCards()` 的 `/\/cn\//` 过滤会把它们滤掉，故 `detail.recommendations` 恒为空、详情页「猜你喜欢」区块不会渲染（按用户决定保留不动，等站点改为服务端渲染再接）。要自己造相似推荐时，可用的服务端渲染数据源是 `/cn/actresses/<slug>`、`/cn/genres/<slug>`、`/cn/tags/<slug>` 列表页。
+- **Page-load (2026-09)**: `requestByWebView` passes `CONFIG.blockRules` (images/CSS/fonts/media) to `fetchCodeByWebView`; `fetchManyCached` already fetches the three home feeds concurrently via `batchFetch`. Playback m3u8 is parsed locally from the detail HTML (packer), so no eager resolve to defer. Guarded by a source-scan test in `test/missav_plus.test.js`.
 
 ## MissAV app notes
 
@@ -136,6 +138,7 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 - Cards: cover `800.webp` (`400.webp` for small), duration formatted `20h26m`/`48m12s`, views as `3.2万`, date from `published_time`. Card URL is the canonical site URL `…/cn/video/{id}/{slug}` so 原网页/收藏 stay valid; `idFrom(url,'video')` recovers the id.
 - **Playback quality cap (2026-09, settled)**: AV01's ABR master we hand the player is built with `CONFIG.limits.abrMaxHeight = 720`, so `buildMaster(text,id,token,maxHeight)` drops variants + I-FRAME entries above the cap (the site's own `Lce()` does the same kind of cap). Reason: measured on the user's phone, the link transfers ~400–560 KB/s of real payload but has **1.5–1.8 s of per-request latency**; AV01 declares 360P 0.39 / 720P 1.38 / 1080P 3.14 Mbps, so 1080P (needs 392 KB/s sustained) is out of reach and letting ABR probe it makes playback thrash (the user saw the speed meter oscillate 0↔several MB/s). 720P is the top of the automatic range; 1080P stays as a manual line inside the player and as a per-quality payload line. If the cap would drop every variant (a 1080P-only video) `resolveMedia` falls back to an uncapped master so the player never gets an empty playlist. `synthMaster` honours the same cap.
 - The AV01 stream is **CMAF fMP4** (`.m4s` + `#EXT-X-MAP`, 0.7–4.4 MB segments, `access_token` query on every segment URL) — verified. The other three apps' segment containers were **not** inspected; their segment URLs are short and clean, and the fMP4-vs-MPEG-TS difference is what we *suspect* made AV01 less player-friendly (a hypothesis, not a verified fact). There is **no TS fallback** for AV01 (`master-ts.m3u8` hangs/400, the CDN's `.ts` 504s, `/v2/<storage>/video.mp4` 404s). MX Player cannot play the stream (FFmpeg rejects `.m4s`/`#EXT-X-MAP`) and Hiker's X5 webview cannot run hls.js (no MSE), so neither is usable as a comparison or fallback.
+- **Page-load (2026-09)**: `renderDetail` no longer calls `resolveMedia(id)`; the `▶ 立即播放` button is a `lazyRule` (`playBest(id, url)`) so the detail page renders without the geo → cdn-access → master.m3u8 chain (AV01 measures ~1.5–1.8 s per request, so that was 3–4 s of dead time before render; the resolution now happens on tap). `requestByWebView` also passes `CONFIG.blockRules` for future CF/WebView use. `test/av01.test.js` guards both ("渲染时不请求 cdn-access/master", "回调返回带 access_token 的清单", blockRules present).
 - Temporary on-device diagnostics (`🩺 播放自检` / `📋 复制直连播放地址` / `🌐 用原站播放器播放` / `🧪 固定清晰度自测`, plus `core.diagnose/remotePlayUrl/qualityUrl`) were used to settle the above and have been **removed for the release**; `test/av01.test.js` guards against them coming back.
 - State keys are prefixed `av01.`. Preview: `node tools/preview_av01.js` → `docs/dev/preview_av01.html`. Fixtures: `test/fixtures/av01_{home,latest,hottest,detail,similars,search,actresses,makers,tags,actress_videos,geo}.json` + `av01_master.m3u8` (real API responses; descriptions/translations trimmed to keep them small).
 

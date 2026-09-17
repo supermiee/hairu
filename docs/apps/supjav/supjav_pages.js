@@ -5,10 +5,10 @@
  * 顶部 tab：首页 / 热门 / 有码 / 无码 / 女优 / 分类 / 我的。
  */
 (function () {
-    var MODULE_VERSION = '18';
+    var MODULE_VERSION = '19';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/supjav/supjav_pages.js?v=' + MODULE_VERSION;
-    var CORE_URL = PUBLISH_BASE + 'apps/supjav/supjav_core.js?v=18';
+    var CORE_URL = PUBLISH_BASE + 'apps/supjav/supjav_core.js?v=19';
 
     var ACCENT = '#E91E63';
     var SITE = 'https://supjav.com/zh';
@@ -80,8 +80,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=18').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=18').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=19').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=19').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -93,8 +93,8 @@
     }
     function pageRoute(name, params, flags) {
         return $('hiker://empty' + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=18').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=18').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=19').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=19').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeDirectory(kind, url, title) {
@@ -425,8 +425,8 @@
     function playLine(server) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19'); }
             var resolved = app.resolveServer(payload);
             if (resolved.media) {
                 return JSON.stringify({ urls: [resolved.media], names: [payload.name], headers: [app.playerHeaders({ url: resolved.pageUrl || app.config.playerHost })] });
@@ -438,8 +438,8 @@
     function favoriteToggle(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19'); }
             var id = 'fav:' + payload.url;
             var added = app.toggleFavorite(payload);
             var toast = 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -482,8 +482,8 @@
                         content: '将清除缓存、收藏与历史等本地数据，确定继续？',
                         confirm: $.toString(function () {
                             var app2;
-                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18'); }
-                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18'); }
+                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19'); }
+                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19'); }
                             app2.clearLocal();
                             try { refreshPage(false); } catch (ignoreRefresh) {}
                             return 'toast://已清除';
@@ -492,7 +492,7 @@
                     });
                     return 'hiker://empty';
                 }
-                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18').clearLocal(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19').clearLocal(); }
                 refreshPage(false);
                 return 'toast://已清除';
             }), col_type: 'text_center_1' }
@@ -509,7 +509,7 @@
             { title: '打开验证网页', url: source, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: source, canBack: true } },
             { title: '第二步：验证成功后，点此返回并刷新', url: $('hiker://empty#noLoading#').lazyRule(function () {
                 try { putVar('supjav.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=18').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=19').clearPageCache(); }
                 back(true);
                 return 'toast://已记录验证状态，请刷新';
             }), col_type: 'scroll_button', extra: { backgroundColor: ACCENT } },

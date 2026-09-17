@@ -84,11 +84,12 @@ function fetchPCImpl(url, options) {
 global.fetchPC = fetchPCImpl;
 
 var lastDollarUrl = '';
+var capturedLazy = [];
 function dollar(url) {
     if (typeof url === 'string') lastDollarUrl = url;
     return {
         rule: function (cb, params) { return JSON.stringify({ kind: 'rule', url: url, params: params }); },
-        lazyRule: function (cb, params) { return JSON.stringify({ kind: 'lazy', url: url, params: params }); }
+        lazyRule: function (cb, params) { capturedLazy.push({ cb: cb, params: params }); return JSON.stringify({ kind: 'lazy', url: url, params: params }); }
     };
 }
 var core = freshRequire(CORE_PATH);
@@ -253,22 +254,28 @@ test('女优 tab：目录条目按名称 + 数量渲染（home）', function () 
     assert.ok(t.indexOf('加载失败') < 0, '女优目录加载失败: ' + t.slice(0, 200));
 });
 
-test('详情页：hero / 元信息 chips / 强调色播放按钮 / 女优片商标签 / 猜你喜欢', function () {
+test('详情页：hero / 元信息 chips / 强调色播放按钮（懒解析，渲染时不解析播放清单）', function () {
     store = {};
     MY_PAGE_VALUE = 1;
-    pages.renderRouter({ name: 'renderDetail', params: { url: 'https://www.av01.media/cn/video/219346/mird-281-lada', title: 'x' } });
+    capturedLazy = [];
+    var calls = [];
+    var old = global.fetchPC;
+    global.fetchPC = function (url, options) { calls.push(String(url)); return fetchPCImpl(url, options); };
+    try {
+        pages.renderRouter({ name: 'renderDetail', params: { url: 'https://www.av01.media/cn/video/219346/mird-281-lada', title: 'x' } });
+    } finally { global.fetchPC = old; }
     assert.ok(Array.isArray(lastResult) && lastResult.length, '未输出详情');
     assert.strictEqual(lastResult[0].col_type, 'pic_1_full', '详情 hero 未用完整海报');
     var playCard = lastResult.filter(function (c) { return /立即播放/.test(c.title || ''); })[0];
     assert.ok(playCard, '缺播放按钮：' + titles(lastResult).slice(0, 200));
     assert.strictEqual(playCard.extra.backgroundColor, '#E91E63', '播放按钮缺强调色');
-    var payload = JSON.parse(playCard.url);
-    assert.strictEqual(payload.urls.length, 3, '播放线路数量不对: ' + payload.urls.length);
-    assert.ok(payload.urls[0].indexOf('/videos/219346/manifest/index90-sv3-v1-a1.m3u8') >= 0, '播放地址不对: ' + payload.urls[0]);
-    assert.ok(payload.urls[0].indexOf('access_token=' + ACCESS_TOKEN) >= 0, '播放地址缺 access_token: ' + payload.urls[0]);
-    assert.deepStrictEqual(payload.names, ['1080P', '720P', '360P'], '清晰度名称不对: ' + payload.names);
-    assert.strictEqual(payload.headers.length, payload.urls.length, 'headers 数量应与线路一致');
     assert.strictEqual(playCard.extra.id, 'https://www.av01.media/cn/video/219346/mird-281-lada', '进度 id 缺失');
+    var lazy = JSON.parse(playCard.url);
+    assert.strictEqual(lazy.kind, 'lazy', '播放按钮应是懒解析 lazyRule');
+    assert.strictEqual(String(lazy.params.id), '219346', '懒解析参数缺 id');
+    /* 关键：渲染详情页期间不应解析播放清单（原版会打 cdn-access/master 请求） */
+    assert.ok(!calls.some(function (u) { return /cdn-access/.test(u); }), '详情页渲染时不应请求 cdn-access');
+    assert.ok(!calls.some(function (u) { return /manifest\/master/.test(u); }), '详情页渲染时不应请求 master.m3u8');
     var t = titles(lastResult);
     assert.ok(t.indexOf('番号 MIRD-281-lada') >= 0, '缺番号 chip: ' + t.slice(0, 200));
     assert.ok(t.indexOf('时长 20h26m') >= 0, '缺时长 chip');
@@ -276,6 +283,26 @@ test('详情页：hero / 元信息 chips / 强调色播放按钮 / 女优片商�
     assert.ok(t.indexOf('Moodyz') >= 0, '缺片商');
     assert.ok(t.indexOf('乱交') >= 0, '缺标签');
     assert.ok(t.indexOf('猜你喜欢') >= 0, '缺猜你喜欢');
+});
+
+test('点「立即播放」才解析：回调返回带 access_token 的播放清单', function () {
+    store = {};
+    capturedLazy = [];
+    pages.renderRouter({ name: 'renderDetail', params: { url: 'https://www.av01.media/cn/video/219346/mird-281-lada', title: 'x' } });
+    var lazy = capturedLazy.filter(function (l) { return l.params && l.params.id; }).pop();
+    assert.ok(lazy, '未捕获到主播放按钮的懒解析回调');
+    var payload = JSON.parse(lazy.cb(lazy.params));
+    assert.strictEqual(payload.urls.length, 3, '播放线路数量不对: ' + payload.urls.length);
+    assert.ok(payload.urls[0].indexOf('/videos/219346/manifest/index90-sv3-v1-a1.m3u8') >= 0, '播放地址不对: ' + payload.urls[0]);
+    assert.ok(payload.urls[0].indexOf('access_token=' + ACCESS_TOKEN) >= 0, '播放地址缺 access_token: ' + payload.urls[0]);
+    assert.deepStrictEqual(payload.names, ['1080P', '720P', '360P'], '清晰度名称不对: ' + payload.names);
+    assert.strictEqual(payload.headers.length, payload.urls.length, 'headers 数量应与线路一致');
+});
+
+test('WebView 抓取带 blockRules（屏蔽静态资源加速）', function () {
+    var source = fs.readFileSync(CORE_PATH, 'utf8');
+    assert.ok(/blockRules:\s*CONFIG\.blockRules/.test(source), '未传 blockRules');
+    assert.ok(/\.png/.test(source) && /\.css/.test(source), 'blockRules 未覆盖常见静态资源');
 });
 
 test('播放链路：geo -> cdn-access -> master.m3u8', function () {
@@ -446,7 +473,7 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
         assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19') >= 0, '未引用内核');
 });
 
 test('没有 1080P 的影片：档位只按真实存在的给，且裁到空时不会产出空清单', function () {

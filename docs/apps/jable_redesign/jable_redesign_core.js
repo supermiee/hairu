@@ -5,7 +5,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '18',
+        version: '19',
         sources: ['https://jable.tv', 'https://fs1.app'],
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
         /* 验证用移动端 UA + WebView 通道标记（与内嵌验证页同内核同 CookieManager） */
@@ -14,6 +14,10 @@
         webviewFlagKey: 'jable.webviewMode',
         timeout: 12000,
         cachePrefix: 'jable.full.',
+        /* WebView 抓取时屏蔽的静态资源（只要 HTML，图片/CSS/字体/媒体都用不到，加快 onPageFinished） */
+        blockRules: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico',
+            '.css', '.woff', '.woff2', '.ttf', '.otf', '.eot',
+            '.mp4', '.m3u8', '.ts', '.mp3', '.webm'],
         languageKey: 'language',
         languages: [
             { id: 'zh-TW', title: '繁體中文', siteValue: '' },
@@ -129,6 +133,8 @@
             var html = fetchCodeByWebView(url, {
                 headers: { 'User-Agent': CONFIG.mobileUa, Referer: originOf(url) + '/' },
                 timeout: (options && options.webViewTimeout) || CONFIG.webViewTimeout,
+                /* 只取 HTML：屏蔽图片/CSS/字体/媒体，显著缩短 WebView onPageFinished 时间 */
+                blockRules: CONFIG.blockRules,
                 checkJs: $.toString(function () {
                     return !!document.querySelector('.video-img-box, [href*="/videos/"], meta[property="og:title"]');
                 })

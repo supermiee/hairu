@@ -16,7 +16,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '18',
+        version: '19',
         source: 'https://www.av01.media',
         localePath: '/cn',
         lang: 'cn',
@@ -30,6 +30,10 @@
         webviewFlagKey: 'av01.webviewMode',
         timeout: 8000,
         cachePrefix: 'av01.',
+        /* WebView 抓取时屏蔽的静态资源（当前无 CF 用不到，保留给未来 CF/WebView 兜底时加速） */
+        blockRules: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico',
+            '.css', '.woff', '.woff2', '.ttf', '.otf', '.eot',
+            '.mp4', '.m3u8', '.ts', '.mp3', '.webm'],
         limits: { homeSection: 6, homeMakers: 2, page: 24, directory: 100, history: 200, abrMaxHeight: 720 }
     };
 
@@ -74,6 +78,7 @@
             var raw = fetchCodeByWebView(url, {
                 headers: { 'User-Agent': CONFIG.mobileUa, Referer: site() + '/' },
                 timeout: (options && options.webViewTimeout) || CONFIG.webViewTimeout,
+                blockRules: CONFIG.blockRules,
                 checkJs: $.toString(function () { return !!document.body && document.body.innerText.length > 0; })
             });
             if (isUsable(raw)) return { ok: true, text: String(raw), url: url, status: 200, via: 'webview', headers: {} };

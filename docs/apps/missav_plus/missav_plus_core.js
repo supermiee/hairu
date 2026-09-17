@@ -5,7 +5,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '18',
+        version: '19',
         source: 'https://missav.ws',
         /* Public site domains observed in the site's own redirect script. */
         sources: ['https://missav.ws', 'https://missav.ai', 'https://missav123.com'],
@@ -17,6 +17,10 @@
         webviewFlagKey: 'missav.webviewMode',
         timeout: 5000,
         cachePrefix: 'missav.full.',
+        /* WebView 抓取时屏蔽的静态资源（只要 HTML，图片/CSS/字体/媒体都用不到，加快 onPageFinished） */
+        blockRules: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico',
+            '.css', '.woff', '.woff2', '.ttf', '.otf', '.eot',
+            '.mp4', '.m3u8', '.ts', '.mp3', '.webm'],
         limits: { home: 6, history: 200 }
     };
 
@@ -85,6 +89,8 @@
             var html = fetchCodeByWebView(url, {
                 headers: { 'User-Agent': CONFIG.mobileUa, Referer: origin(url) + '/' },
                 timeout: (options && options.webViewTimeout) || CONFIG.webViewTimeout,
+                /* 只取 HTML：屏蔽图片/CSS/字体/媒体，显著缩短 WebView onPageFinished 时间 */
+                blockRules: CONFIG.blockRules,
                 checkJs: $.toString(function () {
                     return !!document.querySelector('video, [class*="thumbnail"], [class*="video"], meta[property="og:title"]');
                 })

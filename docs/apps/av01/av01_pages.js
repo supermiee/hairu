@@ -6,10 +6,10 @@
  * 文案为简体中文（站点 /cn 为简体）。
  */
 (function () {
-    var MODULE_VERSION = '18';
+    var MODULE_VERSION = '19';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/av01/av01_pages.js?v=' + MODULE_VERSION;
-    var CORE_URL = PUBLISH_BASE + 'apps/av01/av01_core.js?v=18';
+    var CORE_URL = PUBLISH_BASE + 'apps/av01/av01_core.js?v=19';
 
     var ACCENT = '#E91E63';
     var SITE = 'https://www.av01.media/cn';
@@ -93,8 +93,8 @@
     }
     function routeList(url, title, flags) {
         return $('hiker://empty#' + pagedSource(url) + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=18').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=18').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=19').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=19').renderList(payload); }
         }, { url: url, title: title || '影片列表' });
     }
     function routeSearch(keyword) { return routeList(searchUrl(keyword), '搜索：' + keyword); }
@@ -109,8 +109,8 @@
     }
     function pageRoute(name, params, flags) {
         return $('hiker://empty' + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=18').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=18').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=19').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_pages.js?v=19').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeDetail(item) {
@@ -352,25 +352,14 @@
 
             if (detail.description && detail.description !== detail.title) result.push({ title: detail.description, col_type: 'rich_text', extra: { textSize: 14, lineVisible: false } });
 
-            var media = app.resolveMedia(id);
-            if (media.ok && media.urls.length) {
-                var qualityNames = media.names.slice(media.local ? 1 : 0);
-                result.push({
-                    title: '▶ 立即播放' + (media.local ? '（自动·多码率自适应）' : ''),
-                    desc: media.local ? '默认自动切换清晰度（弱网自动降码率）；也可在播放器内手动选 ' + qualityNames.join(' / ') : ('清晰度：' + media.names.join(' / ') + '，在播放器内切换'),
-                    url: JSON.stringify({ urls: media.urls, names: media.names, headers: media.urls.map(function () { return app.playerHeaders(); }) }),
-                    col_type: 'text_center_1',
-                    extra: { lineVisible: false, id: url, backgroundColor: ACCENT, textSize: 16 }
-                });
-            } else {
-                result.push({
-                    title: '▶ 网页嗅探播放',
-                    desc: '未直接解析到媒体地址，将自动嗅探网页视频。',
-                    url: 'video://' + url + '#isVideo=true#',
-                    col_type: 'text_center_1',
-                    extra: { lineVisible: false, id: url, backgroundColor: ACCENT, textSize: 16 }
-                });
-            }
+            /* 播放地址懒解析：详情页渲染时不发 geo/cdn-access/master 请求，点「立即播放」时才解析 */
+            result.push({
+                title: '▶ 立即播放',
+                desc: '点按后自动解析清晰度（默认多码率自适应，弱网自动降码率）',
+                url: playBest(id, url),
+                col_type: 'text_center_1',
+                extra: { lineVisible: false, id: url, backgroundColor: ACCENT, textSize: 16 }
+            });
 
             result.push({ title: app.isFavorite(url) ? '★ 已收藏' : '☆ 收藏', url: favoriteToggle(detail), col_type: 'flex_button', extra: { id: 'fav:' + url } });
             result.push({ title: '🌐 打开原网页', url: 'web://' + url, col_type: 'flex_button' });
@@ -400,11 +389,25 @@
         if (group === '标签') return routeVideosBy('tag', link.id, link.title);
         return link.url || 'toast://不可点击';
     }
+    /* 主播放按钮：点按后才解析播放清单（geo -> cdn-access -> master），避免拖慢详情页 */
+    function playBest(id, url) {
+        return $('hiker://empty').lazyRule(function (payload) {
+            var app;
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19'); }
+            var media = app.resolveMedia(payload.id);
+            if (media.ok && media.urls.length) {
+                return JSON.stringify({ urls: media.urls, names: media.names, headers: media.urls.map(function () { return app.playerHeaders(); }) });
+            }
+            if (payload.url) return 'video://' + payload.url + '#isVideo=true#';
+            return 'toast://未解析到可用播放地址';
+        }, { id: id, url: url || '' });
+    }
     function favoriteToggle(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19'); }
             var id = 'fav:' + payload.url;
             var added = app.toggleFavorite(payload);
             var toast = 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -446,8 +449,8 @@
                         content: '将清除缓存、收藏与历史等本地数据，确定继续？',
                         confirm: $.toString(function () {
                             var app2;
-                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18'); }
-                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18'); }
+                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19'); }
+                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19'); }
                             app2.clearLocal();
                             try { refreshPage(false); } catch (ignoreRefresh) {}
                             return 'toast://已清除';
@@ -456,7 +459,7 @@
                     });
                     return 'hiker://empty';
                 }
-                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18').clearLocal(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19').clearLocal(); }
                 refreshPage(false);
                 return 'toast://已清除';
             }), col_type: 'text_center_1' }
@@ -470,7 +473,7 @@
             { title: '打开验证网页', url: SITE, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: SITE, canBack: true } },
             { title: '第二步：验证成功后，点此返回并刷新', url: $('hiker://empty#noLoading#').lazyRule(function () {
                 try { putVar('av01.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=18').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19').clearPageCache(); }
                 back(true);
                 return 'toast://已记录验证状态，请刷新';
             }), col_type: 'scroll_button', extra: { backgroundColor: ACCENT } }

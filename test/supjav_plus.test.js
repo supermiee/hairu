@@ -459,7 +459,7 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
         assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=18') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=19') >= 0, '未引用内核');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
