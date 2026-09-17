@@ -2,7 +2,7 @@
 
 ## What this repo is
 
-Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, served by GitHub Pages. No build system, no package.json, no CI — only `docs/`, `test/`, `tools/`, `AGENTS.md`, `README.md`.
+Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, served by GitHub Pages. No build system, no package.json, no CI — only `docs/`, `test/`, `tools/`, `AGENTS.md`, `README.md`, `.gitignore`. `docs/index.html` is a static landing page (subscription URL / site list / preview links) at the Pages root; it is not a rule module.
 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`

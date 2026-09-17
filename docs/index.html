@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>海阔视界小程序规则 · hairu</title>
+<meta name="description" content="海阔视界（Hiker）小程序规则订阅：Jable / MissAV / SupJav / AV01。">
+<style>
+:root{--accent:#E91E63;--bg:#141414;--card:#1d1d1d;--line:#2c2c2c;--fg:#e6e6e6;--dim:#9a9a9a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}
+main{max-width:680px;margin:0 auto;padding:40px 20px 64px}
+h1{font-size:26px;margin:0 0 4px}
+.lead{color:var(--dim);margin:0 0 28px;letter-spacing:.02em}
+h2{font-size:16px;margin:32px 0 12px;color:var(--dim);font-weight:600}
+section.sub{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+section.sub label{display:block;font-size:12px;color:var(--dim);margin-bottom:8px}
+.row{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
+code{flex:1;min-width:220px;background:#101010;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;color:#f2c1d6}
+button{border:0;border-radius:8px;background:var(--accent);color:#fff;padding:0 18px;font-size:14px;cursor:pointer;min-height:40px}
+button:active{opacity:.85}
+.hint{color:var(--dim);font-size:13px;margin:10px 0 0}
+ul.apps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+ul.apps li{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+ul.apps b{display:block;font-size:15px}
+ul.apps span{color:var(--dim);font-size:12px}
+.links{display:flex;flex-wrap:wrap;gap:8px}
+.links a{color:var(--fg);text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:6px 14px;font-size:13px}
+.links a:hover{border-color:var(--accent)}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);color:var(--dim);font-size:13px}
+footer a{color:var(--accent);text-decoration:none}
+.toast{color:var(--accent);font-size:13px;margin-left:8px}
+</style>
+</head>
+<body>
+<main>
+  <h1>海阔视界小程序规则</h1>
+  <p class="lead">Jable · MissAV · SupJav · AV01</p>
+
+  <section class="sub">
+    <label>订阅地址</label>
+    <div class="row">
+      <code id="sub-url">https://supermiee.github.io/hairu/subscription.json</code>
+      <button id="copy">复制</button>
+    </div>
+    <p class="hint">海阔视界 →「我的」→「订阅」→ 右上角「+」→ 粘贴上方地址 → 保存后刷新订阅。</p>
+  </section>
+
+  <h2>支持站点</h2>
+  <ul class="apps">
+    <li><b>Jable</b><span>jable.tv</span></li>
+    <li><b>MissAV</b><span>missav.ws</span></li>
+    <li><b>SupJav</b><span>supjav.com</span></li>
+    <li><b>AV01</b><span>av01.media</span></li>
+  </ul>
+
+  <h2>界面预览</h2>
+  <div class="links">
+    <a href="dev/preview_jable.html">Jable</a>
+    <a href="dev/preview_missav.html">MissAV</a>
+    <a href="dev/preview_supjav.html">SupJav</a>
+    <a href="dev/preview_av01.html">AV01</a>
+  </div>
+
+  <h2>说明</h2>
+  <p class="hint" style="margin-top:0">规则为纯静态 JS，不收集任何数据；收藏 / 历史 / 搜索等仅保存在本机。站点若开启人机验证，请在小程序内按提示完成一次「验证并同步」。</p>
+
+  <footer>
+    <a href="https://github.com/supermiee/hairu">GitHub 仓库</a> · v1.0.0（规则基线 20）
+  </footer>
+</main>
+<script>
+(function(){
+  var btn=document.getElementById('copy');
+  var url=document.getElementById('sub-url').textContent;
+  btn.addEventListener('click',function(){
+    function done(){ btn.textContent='已复制'; setTimeout(function(){btn.textContent='复制';},1500); }
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(done,fallback); }
+    else{ fallback(); }
+    function fallback(){
+      var t=document.createElement('textarea'); t.value=url; t.style.position='fixed'; t.style.opacity='0';
+      document.body.appendChild(t); t.select();
+      try{ document.execCommand('copy'); done(); }catch(e){}
+      document.body.removeChild(t);
+    }
+  });
+})();
+</script>
+</body>
+</html>
