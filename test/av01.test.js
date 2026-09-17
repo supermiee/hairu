@@ -473,7 +473,7 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
         assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=19') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=20') >= 0, '未引用内核');
 });
 
 test('没有 1080P 的影片：档位只按真实存在的给，且裁到空时不会产出空清单', function () {

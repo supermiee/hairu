@@ -8,8 +8,8 @@ var fs = require('fs');
 var path = require('path');
 
 var ROOT = path.join(__dirname, '..');
-var CORE = path.join(ROOT, 'docs', 'apps', 'supjav', 'supjav_core.js');
-var PAGES = path.join(ROOT, 'docs', 'apps', 'supjav', 'supjav_pages.js');
+var CORE = path.join(ROOT, 'docs', 'apps', 'supjav_plus', 'supjav_plus_core.js');
+var PAGES = path.join(ROOT, 'docs', 'apps', 'supjav_plus', 'supjav_plus_pages.js');
 var FIX = path.join(ROOT, 'test', 'fixtures');
 
 var store = {};
@@ -41,9 +41,9 @@ global.$ = function (url) {
         lazyRule: function (cb, params) { return JSON.stringify({ kind: 'lazy', url: url, params: params }); }
     };
 };
-global.$.require = function (p) { return String(p).indexOf('supjav_core') >= 0 ? core : pages; };
+global.$.require = function (p) { return String(p).indexOf('supjav_plus_core') >= 0 ? core : pages; };
 global.$.toString = function (fn) { return '(' + fn.toString() + ')'; };
-global.requirejs = function (u) { return String(u).indexOf('supjav_core') >= 0 ? core : pages; };
+global.requirejs = function (u) { return String(u).indexOf('supjav_plus_core') >= 0 ? core : pages; };
 global.fetchPC = function (url) {
     url = String(url);
     if (/lk1\.supremejav\.com/.test(url)) return JSON.stringify({ body: FIXTURE_PLAYER, statusCode: 200, headers: {} });
@@ -128,23 +128,23 @@ function block(cards, name) {
     return '<div class="screen"><div class="bar"><b>' + name + '</b></div>' + agg(cards) + '</div>';
 }
 
-store['sj.tab'] = '0'; pages.renderHome();
+store['sjp.tab'] = '0'; pages.renderHome();
 var homeCards = mapCards(JSON.parse(JSON.stringify(home)));
-store['sj.tab'] = '1'; pages.renderHome();
+store['sjp.tab'] = '1'; pages.renderHome();
 var popularCards = mapCards(JSON.parse(JSON.stringify(home)));
-store['sj.tab'] = '2'; pages.renderHome();
+store['sjp.tab'] = '2'; pages.renderHome();
 var listCards = mapCards(JSON.parse(JSON.stringify(home)));
-store['sj.tab'] = '4'; pages.renderHome();
+store['sjp.tab'] = '4'; pages.renderHome();
 var castCards = mapCards(JSON.parse(JSON.stringify(home)));
-store['sj.tab'] = '5'; pages.renderHome();
+store['sjp.tab'] = '5'; pages.renderHome();
 var tagCards = mapCards(JSON.parse(JSON.stringify(home)));
-store['sj.tab'] = '6'; pages.renderHome();
+store['sjp.tab'] = '6'; pages.renderHome();
 var mineCards = mapCards(JSON.parse(JSON.stringify(home)));
 pages.renderList({ url: 'https://supjav.com/zh/category/uncensored-jav', title: '无码' });
 var listPage = mapCards(JSON.parse(JSON.stringify(page)));
 pages.renderRouter({ name: 'renderDetail', params: { url: 'https://supjav.com/zh/458193.html', title: 'x' } });
 var detail = mapCards(JSON.parse(JSON.stringify(page)));
-store['sj.tab'] = '0';
+store['sjp.tab'] = '0';
 
 var html = '<!doctype html><meta charset="utf-8"><title>SupJav 预览</title><style>' +
     'body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei";margin:0;background:#151515;color:#ddd}' +

@@ -1,6 +1,6 @@
 /*
- * SupJav+（supjav.com/zh）公共内核：与原版 supjav 并存的性能优化版。
- * 相对原版的三处改动：
+ * SupJav（supjav.com/zh）公共内核。目录名 supjav_plus 是历史遗留（模块 URL，勿改）。
+ * 页面加载优化（相对旧版 supjav 内核）的三处改动：
  *   1. fetchCodeByWebView 带 blockRules：只取 HTML，屏蔽图片/CSS/字体/媒体等静态资源，加快 WebView 加载；
  *   2. 复用 fetch 响应里的最终 URL（HttpHelper 在 withStatusCode 时返回 url 字段），
  *      成功线路只发 1 次中转请求，不再额外发 redirect:false 取 Location；
@@ -11,7 +11,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '19',
+        version: '20',
         source: 'https://supjav.com',
         /* 中文站点（qTranslate 语言子目录），标题/分类/标签均为简体中文 */
         localePath: '/zh',

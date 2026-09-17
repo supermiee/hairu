@@ -1,7 +1,7 @@
 /*
- * SupJav+ 冒烟测试。无依赖：node test/supjav_plus.test.js
+ * SupJav 冒烟测试（目录/内核文件名仍是历史 supjav_plus）。无依赖：node test/supjav_plus.test.js
  * 桩掉海阔全局 API，跑真实渲染路径，并校验：
- *  - 订阅 JSON 的 SupJav+ 版本与 MODULE_VERSION、?v= 一致
+ *  - 订阅 JSON 的 SupJav 版本与 MODULE_VERSION、?v= 一致
  *  - 首页分区解析（周热门 + 有码/无码/素人）
  *  - 列表/搜索翻页均走路径式 /page/fypage（搜索为 /zh/page/N?s=kw）
  *  - 详情页播放地址懒解析：渲染时不发中转请求，点「立即播放」才解析
@@ -447,8 +447,8 @@ test('local 列表页可渲染（收藏/历史共用）', function () {
 
 test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
-    var entry = entries.filter(function (e) { return e.title === 'SupJav+'; })[0];
-    assert.ok(entry, '订阅缺少 SupJav+');
+    var entry = entries.filter(function (e) { return e.title === 'SupJav'; })[0];
+    assert.ok(entry, '订阅缺少 SupJav');
     var source = fs.readFileSync(PAGES_PATH, 'utf8');
     var moduleVersion = /MODULE_VERSION\s*=\s*'(\d+)'/.exec(source)[1];
     assert.strictEqual(String(entry.version), moduleVersion, 'version 与 MODULE_VERSION 不一致');
@@ -459,7 +459,7 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
         assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=19') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=20') >= 0, '未引用内核');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

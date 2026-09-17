@@ -7,21 +7,21 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
-- Apps (5 total, each a self-contained single module — `<app>_core.js` + `<app>_pages.js` in its own folder, all in the v10 UI style): `jable_redesign` — **Jable**, `missav_plus` — **MissAV**, `supjav` — **SupJav**, `supjav_plus` — **SupJav+**, `av01` — **AV01**. The folder names keep the historical `_redesign`/`_plus` suffixes. **SupJav+ coexists with the original SupJav for side-by-side A/B testing** (page-load optimisations: lazy detail playback resolution, `blockRules` on the WebView fetch, no redundant redirect request); once the user signs off, SupJav+ replaces SupJav and the original `supjav` directory + entry are removed (see "SupJav+ notes"). The original `jable`/`missav` apps (and the shared-core arrangement where the redesigned UIs reused them) were removed 2026-09.
+- Apps (4 total, each a self-contained single module — `<app>_core.js` + `<app>_pages.js` in its own folder, all in the v10 UI style): `jable_redesign` — **Jable**, `missav_plus` — **MissAV**, `supjav_plus` — **SupJav**, `av01` — **AV01**. The folder names keep the historical `_redesign`/`_plus` suffixes; the subscription site names have no `+`. SupJav+ was promoted to replace the original `supjav` app 2026-09 (the folder stayed `supjav_plus` because it is the module URL — do not rename folders). The original `jable`/`missav`/`supjav` apps (and the shared-core arrangement where the redesigned UIs reused them) were removed 2026-09.
 - **AV01 is a React SPA**: its HTML is a ~4 KB empty shell, so its core parses a REST JSON API (`/api/v1/...`) instead of HTML. See "AV01 notes".
-- Tests (one file per app): `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js`, `node test/supjav_plus.test.js`, `node test/av01.test.js`.
-- Versioning is repo-wide and unified: one baseline number for all 5 apps, used by the subscription `version`, every `MODULE_VERSION`, every `?v=` (pages + core) and every core `CONFIG.version`. Bump all five together (see "Critical: version bump").
+- Tests (one file per app): `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav_plus.test.js`, `node test/av01.test.js`.
+- Versioning is repo-wide and unified: one baseline number for all 4 apps, used by the subscription `version`, every `MODULE_VERSION`, every `?v=` (pages + core) and every core `CONFIG.version`. Bump all four together (see "Critical: version bump").
 
 ## Critical: version bump (unified baseline)
 
-Clients cache modules by URL, and all five apps share **one unified baseline version** (currently **19**), so a release keeps them lock-stepped:
+Clients cache modules by URL, and all four apps share **one unified baseline version** (currently **20**), so a release keeps them lock-stepped:
 
-1. `version` of **all five** entries in `docs/subscription.json`
+1. `version` of **all four** entries in `docs/subscription.json`
 2. `MODULE_VERSION` at the top of **each** `docs/apps/<app>/<app>_pages.js`
 3. Every hardcoded `?v=N` literal — both the pages URL and the core URL, in every `$().rule()`/`lazyRule()` callback string and in `CORE_URL`
 4. `CONFIG.version` in **each** `<app>_core.js` (displayed in the settings page, so it must match the baseline too)
 
-Bump **all five apps together** to the new number even if only one app's code changed; that is what "unified" means here and it keeps the invariant checkable. `node test/<app>.test.js` enforces it per app and `test/missav_plus.test.js` has a repo-wide guard (all five subscription versions + `MODULE_VERSION` + `?v=` literals equal).
+Bump **all four apps together** to the new number even if only one app's code changed; that is what "unified" means here and it keeps the invariant checkable. `node test/<app>.test.js` enforces it per app and `test/missav_plus.test.js` has a repo-wide guard (all four subscription versions + `MODULE_VERSION` + `?v=` literals equal).
 
 Baseline number rule: **never reset to a number that was ever published** (a client may still have that URL's old content cached — e.g. `av01_core.js?v=1` predates `buildMaster()`); always move forward. Never `requirejs` a module without `?v=`.
 
@@ -88,32 +88,31 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 
 ## SupJav notes
 
-- `docs/apps/supjav/supjav_pages.js` (see its `MODULE_VERSION`) + `supjav_core.js` (same folder, same unified `?v=` as the pages). 7 top tabs: 首页/热门/有码/无码/女优/分类/我的, 玫红 `#E91E63` selection, v10 home (first card `pic_1`, rest `movie_2`, `text_1` clickable section titles with `更多 ›`), detail hero `pic_1_full` → meta chips → accent play → favorite/原网页 → 类别/制作商/女优 chips → 猜你喜欢. Strings Simplified (site locale `/zh` is Simplified).
+- `docs/apps/supjav_plus/supjav_plus_pages.js` (see its `MODULE_VERSION`) + `supjav_plus_core.js` (same folder, same unified `?v=` as the pages; the folder keeps the historical `supjav_plus` name because it is the module URL). 7 top tabs: 首页/热门/有码/无码/女优/分类/我的, 玫红 `#E91E63` selection, v10 home (first card `pic_1`, rest `movie_2`, `text_1` clickable section titles with `更多 ›`), detail hero `pic_1_full` → meta chips → accent play → favorite/原网页 → 类别/制作商/女优 chips → 猜你喜欢. Strings Simplified (site locale `/zh` is Simplified).
 - **Use the `/zh` locale** (`https://supjav.com/zh/...`): qTranslate serves Chinese titles, category names (有码/无码/素人/中文字幕/无码破解), cast and tags. Card hrefs on `/zh` already carry the `/zh/` prefix.
 - **Cards**: `<div class="post"><a class="img" href><img data-original|src></a><div class="con"><h3><a>TITLE</a></h3><div class="meta">DATE<span class="date">N Views</span></div></div></div>`. Grid cards use a base64 `src` placeholder + `data-original` (lazy); the home slider uses a direct `src`. `parseCards()` matches `<div class="post">…<div class="meta">…</div>` (no duration field — show date/views instead).
 - **Home is server-rendered in sections** `<div class="archive-title">` (h1 title + optional h1 `(count)` + `a.more`) followed by `.posts`. `parseHomeSections()` splits on `archive-title` so each chunk holds exactly one section; section 1 is the *Week's Popular* swiper (~18 slides).
 - **Pagination is path-based** (`/page/N`), unlike MissAV's query param: category `/category/x/page/2`, popular `/popular/page/2?sort=week`, cast `/cast/page/2`, maker `/maker/page/2`, tag `/tag/page/2`. **Search differs**: `/zh/page/2?s=kw` (page before the query). `pagedSource()` moves any `?query` after `/page/fypage`, which covers both. Search URL is `https://supjav.com/zh/?s=**`.
 - **Directory pages** (女优 `cast`, 制作商 `maker`, 类别 `tag`) render `<a href="...">名称 (123)</a>`; `parseCast`/`parseMaker`/`parseTags` share `parseDirectory()` and read the count from the parenthesis.
 - **Playback has 4 server lines** (`.btn-server[data-link]`: TV/FST/ST/VOE). Reverse the token and GET `https://lk1.supremejav.com/supjav.php?c=<reversed>` **with a `Referer: https://lk1.supremejav.com/`** (any Referer works; without one the server returns an empty body). It 302-redirects to a third-party player page. **Only TV (turbovidhls.com) exposes a directly playable m3u8** in `<div id="video_player" data-hash="…m3u8">`; FST (fc2stream.tv) embeds the URL in a Dean-Edwards packed script (`links.hls2/hls3`) but its CDN 404s, and ST (streamtape) / VOE (voe.sx→johnfullwonder) load their own JS players needing a click. So:
-  - `resolveMedia()` scans lines in order for a direct m3u8 (TV wins) and powers the primary「▶ 立即播放」.
+  - `resolveBest(servers)` scans lines in order for a direct m3u8 (TV wins); the primary「▶ 立即播放」is a lazy rule that calls it on tap (see app notes). `resolveMedia(html)` remains as a compat wrapper.
   - `resolveServer(server)` resolves one line: `{media}` on success, else `{pageUrl}` from the 302 `Location` (`redirectUrl()` uses `fetchPC(..., {redirect:false, withHeaders:true})`).
   - The detail page renders a「🔀 切换线路」chip row; each chip is a `lazyRule` that resolves only that line on tap — direct media → play payload, otherwise return `video://<pageUrl>#isVideo=true#` so Hiker's sniffer tries the third-party page.
   - FST's m3u8 CDN 404s even on the site itself for some videos, so treat FST/ST/VOE as best-effort.
 - The intermediate `supjav.php?l=<token>` page refuses to run when not framed (it prints `404` if `top===self`), so request `?c=<reversed>` directly.
-- **Cloudflare**: `supjav.com` is managed-challenged (curl always 403 `Just a moment`, even with a browser UA). Same `isHardBlock` + `fetchCodeByWebView` fallback + `supjav.webviewMode` +「验证并同步」flow as MissAV. `img.supjav.com`, the `lk1.supremejav.com` proxy and the m3u8 CDN are **not** challenged, so cover images and playback work without verification.
-- State keys are prefixed `sj.`. Preview: `node tools/preview_supjav.js` → `docs/dev/preview_supjav.html`.
+- **Cloudflare**: `supjav.com` is managed-challenged (curl always 403 `Just a moment`, even with a browser UA). Same `isHardBlock` + `fetchCodeByWebView` fallback + `supjavplus.webviewMode` +「验证并同步」flow as MissAV. `img.supjav.com`, the `lk1.supremejav.com` proxy and the m3u8 CDN are **not** challenged, so cover images and playback work without verification.
+- State keys are prefixed `supjavplus.` (core cache) / `sjp.` (UI state). Preview: `node tools/preview_supjav.js` → `docs/dev/preview_supjav.html`.
 
-## SupJav+ notes (performance fork, 2026-09)
+## SupJav app notes (supjav_plus)
 
-- `docs/apps/supjav_plus/supjav_plus_{core,pages}.js` — same site/parsers/UI as SupJav, hand-forked to remove page-load latency; **coexists with the original `supjav` app for A/B testing** (subscription title `SupJav+`). The user will decide when to promote it to replace the original; that promotion = delete `docs/apps/supjav/`, `test/supjav.test.js`, the `SupJav` subscription entry, rename title, then the folder `supjav_plus` may stay (folder name is the module URL — do **not** rename folders).
-- State keys are prefixed `supjavplus.` (core cache) / `sjp.` (UI state) so favorites/history/cache stay independent from the original `supjav.`/`sj.` — A/B data does not mix.
-- **Three optimisations vs the original (verified with an instrumented request-count harness, `node test/supjav_plus.test.js`):**
-  1. **Detail playback is lazy.** `renderDetail` no longer calls `resolveMedia`; the `▶ 立即播放` button is a `lazyRule` (`playBest(servers, detailUrl)`) that calls the new `core.resolveBest(servers)` only on tap. Original detail page = 1 WebView + 2 relay requests *before* `setResult` (6 relay requests when every line fails), and re-opening a cached detail still re-resolved; SupJav+ detail = 1 WebView, 0 relay at render, and 0 for a cached re-open. The `切换线路` chips stay independent lazy rules.
+- The `supjav_plus` app was promoted to replace the original `supjav` app (2026-09); the folder name is the module URL and was **not** renamed. `docs/apps/supjav/`, `test/supjav.test.js` and the old subscription entry are gone.
+- **Page-load optimisations (verified with an instrumented request-count harness, `node test/supjav_plus.test.js`):**
+  1. **Detail playback is lazy.** `renderDetail` no longer calls `resolveMedia`; the `▶ 立即播放` button is a `lazyRule` (`playBest(servers, detailUrl)`) that calls the new `core.resolveBest(servers)` only on tap. The old detail page made 1 WebView + 2 relay requests *before* `setResult` (6 relay requests when every line fails), and re-opening a cached detail still re-resolved; now detail = 1 WebView, 0 relay at render, and 0 for a cached re-open. The `切换线路` chips stay independent lazy rules.
   2. **WebView fetch sends `CONFIG.blockRules`** (images/CSS/fonts/media) — documented in `help_js.md:1033`/`help_col_type.md:227` as "拦截部分让网页更快加载" and honoured by `ArticleWebkitHolder.shouldInterceptRequest`. We only parse HTML, so blocking those subresources shortens `onPageFinished`.
   3. **`resolveServer` reuses the final URL from the fetch response** (`parseResponse` now reads the `url` field that `HttpHelper` returns under `withStatusCode`, `HttpHelper.java:343-350`) instead of firing a second `redirect:false` request just to read `Location`. A successful line is now **1** relay request. `redirectUrl()` is kept only as a fallback for responses without a `url` field (and for the non-2xx path).
 - `resolveBest(servers)` is the new core export; `resolveMedia(html)` is kept as a compat wrapper (`resolveBest(playerServers(html))`).
-- **FST (`hls3` is a `.txt` master) fix.** FC2's packed `links` object exposes `hls2` (`.m3u8`, signed `premilkyway.com`) and `hls3` (`.txt`, e.g. `mindspiremarketing.sbs`), and the site's own player is `links.hls4 || links.hls3 || links.hls2`. The old `packedMedia()` returned the *first* match (the `.txt`), but **Hiker decides "is m3u8" by the URL containing `.m3u8`** (`help_rules.md:227`), so the `.txt` index was handed to the player as a plain file and failed. SupJav+ now collects every hls/file candidate (`packedMediaCandidates`) and `packedMedia` prefers a `.m3u8` (`.txt` only as last resort). Also `resolveServer` rejects a `finalUrl` whose origin is still `CONFIG.playerHost` (an older `fetchPC` may return the request URL, not the 302 target) and falls back to `redirectUrl()` — so the FST sniff fallback points at `fc2stream.tv`, not the non-framable `?c=` relay page. (*Pre-existing bug, shared with the original; only fixed in SupJav+ so far.*)
-- Test: `node test/supjav_plus.test.js` (31 cases) additionally guards the request counts above — "详情页渲染时不发中转请求", "成功线路只发 1 次请求", `blockRules` present. Preview: `node tools/preview_supjav_plus.js` → `docs/dev/preview_supjav_plus.html`.
+- **FST (`hls3` is a `.txt` master) fix.** FC2's packed `links` object exposes `hls2` (`.m3u8`, signed `premilkyway.com`) and `hls3` (`.txt`, e.g. `mindspiremarketing.sbs`), and the site's own player is `links.hls4 || links.hls3 || links.hls2`. The old `packedMedia()` returned the *first* match (the `.txt`), but **Hiker decides "is m3u8" by the URL containing `.m3u8`** (`help_rules.md:227`), so the `.txt` index was handed to the player as a plain file and failed. It now collects every hls/file candidate (`packedMediaCandidates`) and `packedMedia` prefers a `.m3u8` (`.txt` only as last resort). Also `resolveServer` rejects a `finalUrl` whose origin is still `CONFIG.playerHost` (an older `fetchPC` may return the request URL, not the 302 target) and falls back to `redirectUrl()` — so the FST sniff fallback points at `fc2stream.tv`, not the non-framable `?c=` relay page.
+- Test: `node test/supjav_plus.test.js` (31 cases) additionally guards the request counts above — "详情页渲染时不发中转请求", "成功线路只发 1 次请求", `blockRules` present. Preview: `node tools/preview_supjav.js` → `docs/dev/preview_supjav.html`.
 
 ## AV01 notes
 
@@ -145,14 +144,13 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 ## Verifying changes
 
 ```
-node test/jable_redesign.test.js   # plus missav_plus.test.js, supjav.test.js, supjav_plus.test.js, av01.test.js
+node test/jable_redesign.test.js   # plus missav_plus.test.js, supjav_plus.test.js, av01.test.js
 node tools/preview_jable.js    # visual preview → docs/dev/preview_jable.html
 node tools/preview_missav.js   # visual preview → docs/dev/preview_missav.html
 node tools/preview_supjav.js   # visual preview → docs/dev/preview_supjav.html
-node tools/preview_supjav_plus.js  # visual preview → docs/dev/preview_supjav_plus.html
 node tools/preview_av01.js     # visual preview → docs/dev/preview_av01.html
 ```
 
-Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all five before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script, the SupJav HTML pages, and the AV01 API JSON/m3u8 responses) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
+Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all four before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script, the SupJav HTML pages, and the AV01 API JSON/m3u8 responses) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
 
 Reference material (read-only clones, never commit here): Hiker API docs at `~/code/developer-reference/Documents/docs/hikerview` (`help_api.md`, `help_js.md`, `help_rules.md`, `help_film_list_rules.md`), community sample rules at `~/code/developer-examples/hikerViewRules` (plaintext ES6 — adapt, don't copy verbatim), and the Android app source at `~/code/developer-reference/hikerView`. After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.

@@ -5,7 +5,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '19',
+        version: '20',
         source: 'https://missav.ws',
         /* Public site domains observed in the site's own redirect script. */
         sources: ['https://missav.ws', 'https://missav.ai', 'https://missav123.com'],
