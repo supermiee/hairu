@@ -1,5 +1,10 @@
 /*
- * SupJav（supjav.com/zh）公共内核：HTTP + Cloudflare 处理 + 解析 + 缓存 + 播放链路。
+ * SupJav+（supjav.com/zh）公共内核：与原版 supjav 并存的性能优化版。
+ * 相对原版的三处改动：
+ *   1. fetchCodeByWebView 带 blockRules：只取 HTML，屏蔽图片/CSS/字体/媒体等静态资源，加快 WebView 加载；
+ *   2. 复用 fetch 响应里的最终 URL（HttpHelper 在 withStatusCode 时返回 url 字段），
+ *      成功线路只发 1 次中转请求，不再额外发 redirect:false 取 Location；
+ *   3. 新增 resolveBest(servers)：详情页不再提前解析，点播放时才逐线路解析。
  * 站点分类/搜索/目录均为服务端渲染，卡片选择器 .post；播放地址需要两级解密：
  *   详情页 .btn-server[data-link] --反转--> lk1.supremejav.com/supjav.php?c=... --302-->
  *   第三方播放页 #video_player[data-hash]（m3u8）。
@@ -13,9 +18,13 @@
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
         mobileUa: 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
         webViewTimeout: 12000,
-        webviewFlagKey: 'supjav.webviewMode',
+        webviewFlagKey: 'supjavplus.webviewMode',
         timeout: 6000,
-        cachePrefix: 'supjav.',
+        cachePrefix: 'supjavplus.',
+        /* WebView 抓取时屏蔽的静态资源（只要 HTML，图片/CSS/字体/媒体都用不到） */
+        blockRules: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg', '.ico',
+            '.css', '.woff', '.woff2', '.ttf', '.otf', '.eot',
+            '.mp4', '.m3u8', '.ts', '.mp3', '.webm'],
         /* 播放中转域名：不带 CF 人机验证，只需带 Referer */
         playerHost: 'https://lk1.supremejav.com',
         limits: { home: 6, history: 200, playerServers: 3 }
@@ -67,6 +76,11 @@
         try { var parsed = JSON.parse(raw); if (parsed && typeof parsed.body !== 'undefined') return parsed; } catch (ignore) {}
         return { body: String(raw), statusCode: 200, headers: {} };
     }
+    /* fetch 在 withStatusCode/withHeaders 时返回重定向后的最终 URL（字段 url），可省掉一次取 Location 的请求 */
+    function finalUrlOf(response, fallback) {
+        var value = response && response.url;
+        return (typeof value === 'string' && /^https?:\/\//i.test(value)) ? value : (fallback || '');
+    }
     function isUsableHtml(html, marker) {
         if (!html || html.length < 300) return false;
         if (marker && String(html).indexOf(marker) >= 0) return true;
@@ -87,6 +101,8 @@
             var html = fetchCodeByWebView(url, {
                 headers: { 'User-Agent': CONFIG.mobileUa, Referer: origin(url) + '/' },
                 timeout: (options && options.webViewTimeout) || CONFIG.webViewTimeout,
+                /* 只取 HTML：屏蔽图片/CSS/字体/媒体，显著缩短 WebView onPageFinished 时间 */
+                blockRules: CONFIG.blockRules,
                 checkJs: $.toString(function () {
                     return !!(document.querySelector('.post, .archive-title, .video-wrap, h1') || document.querySelector('meta[name=description]'));
                 })
@@ -140,9 +156,10 @@
         try {
             var raw = fetchPC(url, { headers: { 'User-Agent': CONFIG.mobileUa, Referer: options.referer || origin(url) + '/' }, timeout: options.timeout || CONFIG.timeout, withStatusCode: true });
             var response = parseResponse(raw), status = Number((response && response.statusCode) || 0), body = (response && response.body) || '';
-            if (status === 0 || (status >= 200 && status < 400)) return { ok: true, html: body, url: url, status: status || 200, headers: (response && response.headers) || {} };
-            return { ok: false, url: url, status: status, error: { message: '播放地址请求失败（HTTP ' + status + '）' } };
-        } catch (error) { return { ok: false, url: url, error: { message: String(error) } }; }
+            var finalUrl = finalUrlOf(response, '');
+            if (status === 0 || (status >= 200 && status < 400)) return { ok: true, html: body, url: finalUrl || url, finalUrl: finalUrl, status: status || 200, headers: (response && response.headers) || {} };
+            return { ok: false, url: finalUrl || url, finalUrl: finalUrl, status: status, error: { message: '播放地址请求失败（HTTP ' + status + '）' } };
+        } catch (error) { return { ok: false, url: url, finalUrl: '', error: { message: String(error) } }; }
     }
     /* 不跟随跳转，取 302 的 Location（第三方播放页真实地址），用于网页嗅探兜底 */
     function redirectUrl(url, options) {
@@ -382,33 +399,36 @@
         var any = String(html || '').replace(/\\\//g, '/').match(/https?:\/\/[^"'\s<>\\]+\.(?:m3u8|mp4)[^"'\s<>\\]*/i);
         return any ? any[0] : '';
     }
-    /* 解析单条站点线路：能直链就返回 media，否则给出第三方播放页地址供网页嗅探 */
+    /* 解析单条站点线路：能直链就返回 media，否则给出第三方播放页地址供网页嗅探。
+       中转请求本身会返回重定向后的最终 URL，成功时无需再发一次 redirect:false 请求。 */
     function resolveServer(server) {
         server = server || {};
         if (!server.token) return { name: server.name || '', media: '', pageUrl: '', cUrl: '' };
         var cUrl = CONFIG.playerHost + '/supjav.php?c=' + reverse(server.token);
         var page = requestExternal(cUrl, { referer: CONFIG.playerHost + '/' });
-        var pageUrl = '';
+        var pageUrl = page.finalUrl || '';
         if (page.ok) {
-            pageUrl = redirectUrl(cUrl, { referer: CONFIG.playerHost + '/' }) || '';
             var media = extractMedia(page.html);
             if (media) return { name: server.name || '线路', media: media, pageUrl: pageUrl, cUrl: cUrl };
-        } else {
-            pageUrl = redirectUrl(cUrl, { referer: CONFIG.playerHost + '/' }) || '';
         }
+        /* 响应没有最终 URL（旧版内核不返回 url 字段）时才补发一次 redirect:false 取 Location */
+        if (!pageUrl) pageUrl = redirectUrl(cUrl, { referer: CONFIG.playerHost + '/' }) || '';
         return { name: server.name || '线路', media: '', pageUrl: pageUrl || cUrl, cUrl: cUrl };
     }
-    /* 详情页data-link -> 反转 -> 播放中转页 -> m3u8；逐个线路尝试直到解出（主线路用） */
-    function resolveMedia(html) {
-        var servers = playerServers(html), failures = [];
-        var max = Math.min(servers.length, CONFIG.limits.playerServers);
+    /* 逐条线路尝试直到解出直链：详情页点播放时才调用（懒解析，避免拖慢详情页） */
+    function resolveBest(servers) {
+        var list = servers || [], failures = [], fallbackPage = '';
+        var max = Math.min(list.length, CONFIG.limits.playerServers);
         for (var i = 0; i < max; i++) {
-            var resolved = resolveServer(servers[i]);
-            if (resolved.media) return { ok: true, mediaUrl: resolved.media, server: resolved.name, failures: failures };
+            var resolved = resolveServer(list[i]);
+            if (resolved.pageUrl && !fallbackPage) fallbackPage = resolved.pageUrl;
+            if (resolved.media) return { ok: true, mediaUrl: resolved.media, server: resolved.name, pageUrl: resolved.pageUrl || '', failures: failures };
             failures.push({ server: resolved.name, reason: 'no direct media (third-party player)' });
         }
-        return { ok: false, mediaUrl: '', server: '', failures: failures, error: { message: '未解析到直达播放地址（站点多个线路均为第三方播放器）' } };
+        return { ok: false, mediaUrl: '', server: '', pageUrl: fallbackPage, failures: failures, error: { message: '未解析到直达播放地址（站点多个线路均为第三方播放器）' } };
     }
+    /* 从详情页 HTML 解析线路再逐条尝试（兼容旧调用） */
+    function resolveMedia(html) { return resolveBest(playerServers(html)); }
     function playerHeaders(page) {
         return { Referer: CONFIG.playerHost + '/', Origin: CONFIG.playerHost, 'User-Agent': CONFIG.mobileUa };
     }
@@ -453,7 +473,7 @@
         parseCast: parseCast, parseMaker: parseMaker, parseTags: parseTags, parseTotal: parseTotal, getList: getList,
         parseDetail: parseDetail, parsePlayerPage: parsePlayerPage, playerServers: playerServers,
         unpackPacker: unpackPacker, packedMedia: packedMedia, extractMedia: extractMedia,
-        redirectUrl: redirectUrl, resolveServer: resolveServer, resolveMedia: resolveMedia,
+        redirectUrl: redirectUrl, resolveServer: resolveServer, resolveBest: resolveBest, resolveMedia: resolveMedia,
         playerHeaders: playerHeaders,
         isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, addSearch: addSearch,
         listValue: listValue, setValue: setValue, readList: readList, writeList: writeList, clearLocal: clearLocal

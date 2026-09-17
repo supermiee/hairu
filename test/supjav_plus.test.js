@@ -1,10 +1,12 @@
 /*
- * SupJav 冒烟测试。无依赖：node test/supjav.test.js
+ * SupJav+ 冒烟测试。无依赖：node test/supjav_plus.test.js
  * 桩掉海阔全局 API，跑真实渲染路径，并校验：
- *  - 订阅 JSON 的 SupJav 版本与 MODULE_VERSION、?v= 一致
+ *  - 订阅 JSON 的 SupJav+ 版本与 MODULE_VERSION、?v= 一致
  *  - 首页分区解析（周热门 + 有码/无码/素人）
  *  - 列表/搜索翻页均走路径式 /page/fypage（搜索为 /zh/page/N?s=kw）
- *  - 详情播放链路：data-link 反转 → lk1.supremejav.com → data-hash m3u8 + 进度 id
+ *  - 详情页播放地址懒解析：渲染时不发中转请求，点「立即播放」才解析
+ *  - 每条成功线路只发 1 次中转请求（复用响应里的最终 URL，不再发 redirect:false）
+ *  - WebView 抓取带 blockRules（屏蔽静态资源加速）
  *  - Cloudflare 全失败时给出带验证入口的错误卡片
  */
 'use strict';
@@ -13,8 +15,8 @@ var path = require('path');
 var assert = require('assert');
 
 var ROOT = path.join(__dirname, '..');
-var PAGES_PATH = path.join(ROOT, 'docs', 'apps', 'supjav', 'supjav_pages.js');
-var CORE_PATH = path.join(ROOT, 'docs', 'apps', 'supjav', 'supjav_core.js');
+var PAGES_PATH = path.join(ROOT, 'docs', 'apps', 'supjav_plus', 'supjav_plus_pages.js');
+var CORE_PATH = path.join(ROOT, 'docs', 'apps', 'supjav_plus', 'supjav_plus_core.js');
 var FIX = path.join(__dirname, 'fixtures');
 
 function freshRequire(file) { delete require.cache[require.resolve(file)]; return require(file); }
@@ -54,7 +56,8 @@ var lastFetchUrl = '';
 function fetchPCImpl(url) {
     lastFetchUrl = String(url);
     var s = String(url);
-    if (/lk1\.supremejav\.com/.test(s)) return JSON.stringify({ body: FIXTURE_PLAYER, headers: {}, statusCode: 200 });
+    /* 中转请求跟随 302 后：返回第三方播放页 + 最终 URL（模拟 HttpHelper 的 url 字段） */
+    if (/lk1\.supremejav\.com/.test(s)) return JSON.stringify({ body: FIXTURE_PLAYER, headers: {}, statusCode: 200, url: 'https://turbovidhls.com/t/abc' });
     if (/458193/.test(s)) return JSON.stringify({ body: FIXTURE_DETAIL, headers: {}, statusCode: 200 });
     if (/\/cast/.test(s)) return JSON.stringify({ body: FIXTURE_CAST, headers: {}, statusCode: 200 });
     if (/\/tag/.test(s)) return JSON.stringify({ body: FIXTURE_TAG, headers: {}, statusCode: 200 });
@@ -64,16 +67,17 @@ function fetchPCImpl(url) {
 global.fetchPC = fetchPCImpl;
 
 var lastDollarUrl = '';
+var capturedLazy = [];
 function dollar(url) {
     if (typeof url === 'string') lastDollarUrl = url;
     return {
         rule: function (cb, params) { return JSON.stringify({ kind: 'rule', url: url, params: params }); },
-        lazyRule: function (cb, params) { return JSON.stringify({ kind: 'lazy', url: url, params: params }); }
+        lazyRule: function (cb, params) { capturedLazy.push({ cb: cb, params: params }); return JSON.stringify({ kind: 'lazy', url: url, params: params }); }
     };
 }
 var core = freshRequire(CORE_PATH);
 var pages;
-dollar.require = function (p) { return String(p).indexOf('supjav_core') >= 0 ? core : pages; };
+dollar.require = function (p) { return String(p).indexOf('supjav_plus_core') >= 0 ? core : pages; };
 dollar.toString = function (fn) { return '(' + fn.toString() + ')'; };
 global.$ = dollar;
 pages = freshRequire(PAGES_PATH);
@@ -90,7 +94,7 @@ test('模块可加载且导出齐全', function () {
     ['renderHome', 'renderList', 'renderSearch', 'renderRouter', 'renderDetail', 'recordSearch', 'routeDirectory', 'routeVerification'].forEach(function (k) {
         assert.strictEqual(typeof pages[k], 'function', '缺少导出 ' + k);
     });
-    ['getList', 'parseHomeSections', 'parseCards', 'parseCast', 'parseDetail', 'resolveMedia', 'parsePlayerPage', 'listValue', 'clearLocal'].forEach(function (k) {
+    ['getList', 'parseHomeSections', 'parseCards', 'parseCast', 'parseDetail', 'resolveBest', 'resolveMedia', 'parsePlayerPage', 'listValue', 'clearLocal'].forEach(function (k) {
         assert.strictEqual(typeof core[k], 'function', '内核缺少 ' + k);
     });
 });
@@ -200,7 +204,7 @@ test('女优目录页可渲染（名称 + 数量）', function () {
 });
 
 test('分类 tab：类别目录条目（名称 + 数量）', function () {
-    store = { 'sj.tab': '5' };
+    store = { 'sjp.tab': '5' };
     pages.renderHome();
     var t = titles(lastHome);
     assert.ok(t.indexOf('口交') >= 0 && t.indexOf('中出') >= 0, '分类目录缺条目: ' + t);
@@ -208,20 +212,23 @@ test('分类 tab：类别目录条目（名称 + 数量）', function () {
     assert.ok(t.indexOf('加载失败') < 0, '分类目录加载失败: ' + t);
 });
 
-test('详情页：大图 / 元信息 chips / 强调色播放按钮 / 分类制作商女优标签', function () {
+test('详情页：大图 / 元信息 chips / 强调色播放按钮 / 懒解析（渲染时不发中转请求）', function () {
     store = {};
+    capturedLazy = [];
+    lastFetchUrl = '';
     pages.renderRouter({ name: 'renderDetail', params: { url: 'https://supjav.com/zh/458193.html', title: 'x' } });
     assert.ok(Array.isArray(lastResult) && lastResult.length, '未输出详情');
     assert.strictEqual(lastResult[0].col_type, 'pic_1_full', '详情 hero 未用完整海报');
     var playCard = lastResult.filter(function (c) { return /立即播放/.test(c.title || ''); })[0];
     assert.ok(playCard, '缺播放按钮：' + titles(lastResult));
     assert.strictEqual(playCard.extra.backgroundColor, '#E91E63', '播放按钮缺强调色');
-    var payload = JSON.parse(playCard.url);
-    assert.deepStrictEqual(payload.urls, ['https://cdn.turboviplay.com/data1/6aa9621c41a98/6aa9621c41a98.m3u8'], '未解析到 m3u8');
-    assert.strictEqual(payload.names[0], 'TV', '线路名应为 TV');
-    assert.strictEqual(payload.headers.length, payload.urls.length, 'headers 数量应与线路一致');
-    assert.strictEqual(payload.headers[0].Referer, 'https://lk1.supremejav.com/', '播放 Referer 不对');
     assert.strictEqual(playCard.extra.id, 'https://supjav.com/zh/458193.html', '进度 id 缺失');
+    var lazy = JSON.parse(playCard.url);
+    assert.strictEqual(lazy.kind, 'lazy', '播放按钮应是懒解析 lazyRule');
+    assert.strictEqual((lazy.params.servers || []).length, 4, '懒解析参数缺线路');
+    assert.strictEqual(lazy.params.detailUrl, 'https://supjav.com/zh/458193.html', '懒解析参数缺详情 URL');
+    /* 关键：渲染详情页期间不应请求播放中转（原版会打 2 次） */
+    assert.ok(lastFetchUrl.indexOf('lk1.supremejav.com') < 0, '详情页渲染时不应请求中转: ' + lastFetchUrl);
     var t = titles(lastResult);
     assert.ok(t.indexOf('分类 有码') >= 0, '缺分类 chip');
     assert.ok(t.indexOf('播放 28717') >= 0, '缺播放量 chip');
@@ -232,12 +239,57 @@ test('详情页：大图 / 元信息 chips / 强调色播放按钮 / 分类制�
     assert.ok(t.indexOf('JIMMY-006') >= 0, '缺推荐卡片');
 });
 
-test('播放链路：data-link 反转后请求 lk1.supremejav.com', function () {
+test('点「立即播放」才解析：回调返回播放载荷，且只打 1 次中转请求', function () {
     store = {};
-    var token = '4837f1d96ba29cd16052d712d49435c1ef203ddf5d8e54ee4d784812bf9a4c2a4e7e1c65d64245bef8301787ce77563174c4584db2203c4bf677ef5d898c5f6a69f9743a1b731d8dc96d10b9ba34595e';
-    var expected = token.split('').reverse().join('');
+    capturedLazy = [];
     pages.renderRouter({ name: 'renderDetail', params: { url: 'https://supjav.com/zh/458193.html', title: 'x' } });
+    var lazy = capturedLazy.filter(function (l) { return l.params && l.params.servers; }).pop();
+    assert.ok(lazy, '未捕获到主播放按钮的懒解析回调');
+    lastFetchUrl = '';
+    var token = lazy.params.servers[0].token;
+    var expected = token.split('').reverse().join('');
+    var out = lazy.cb(lazy.params);
     assert.ok(lastFetchUrl.indexOf('https://lk1.supremejav.com/supjav.php?c=' + expected) >= 0, '播放中转请求不对: ' + lastFetchUrl);
+    var payload = JSON.parse(out);
+    assert.deepStrictEqual(payload.urls, ['https://cdn.turboviplay.com/data1/6aa9621c41a98/6aa9621c41a98.m3u8'], '未解析到 m3u8');
+    assert.strictEqual(payload.names[0], 'TV', '线路名应为 TV');
+    assert.strictEqual(payload.headers.length, payload.urls.length, 'headers 数量应与线路一致');
+    assert.strictEqual(payload.headers[0].Referer, 'https://lk1.supremejav.com/', '播放 Referer 不对');
+});
+
+test('resolveServer：成功线路只发 1 次中转请求（复用响应里的最终 URL）', function () {
+    var old = global.fetchPC;
+    var calls = [];
+    global.fetchPC = function (url, opts) {
+        calls.push({ url: String(url), redirect: opts && opts.redirect });
+        return JSON.stringify({ body: FIXTURE_PLAYER, headers: {}, statusCode: 200, url: 'https://turbovidhls.com/t/abc' });
+    };
+    try {
+        var r = core.resolveServer({ name: 'TV', token: 'abc' });
+        assert.strictEqual(r.media, 'https://cdn.turboviplay.com/data1/6aa9621c41a98/6aa9621c41a98.m3u8', '直链未解析');
+        assert.strictEqual(r.pageUrl, 'https://turbovidhls.com/t/abc', '未复用最终 URL');
+        assert.strictEqual(calls.length, 1, '成功线路应只发 1 次请求，实际 ' + calls.length);
+        assert.ok(!calls.some(function (c) { return c.redirect === false; }), '不应再发 redirect:false 请求');
+    } finally { global.fetchPC = old; }
+});
+
+test('resolveBest：逐线路解析，返回首个含直链的线路', function () {
+    var old = global.fetchPC;
+    global.fetchPC = function (url) {
+        if (/c=AAA/.test(url)) return JSON.stringify({ body: '<html><body>404</body></html>', statusCode: 404, headers: {} });
+        return JSON.stringify({ body: FIXTURE_PLAYER, headers: {}, statusCode: 200, url: 'https://turbovidhls.com/t/bbb' });
+    };
+    try {
+        var best = core.resolveBest([{ name: 'TV', token: 'AAA' }, { name: 'FST', token: 'BBB' }]);
+        assert.ok(best.ok, '未解出媒体地址');
+        assert.strictEqual(best.server, 'FST', '未回退到第二条线路');
+    } finally { global.fetchPC = old; }
+});
+
+test('WebView 抓取带 blockRules（屏蔽静态资源加速）', function () {
+    var source = fs.readFileSync(CORE_PATH, 'utf8');
+    assert.ok(/blockRules:\s*CONFIG\.blockRules/.test(source), '未传 blockRules');
+    assert.ok(/\.png/.test(source) && /\.css/.test(source) && /\.m3u8/.test(source), 'blockRules 未覆盖常见静态资源');
 });
 
 test('resolveMedia：多线路时第一个失败会自动尝试下一个', function () {
@@ -378,19 +430,19 @@ test('local 列表页可渲染（收藏/历史共用）', function () {
 
 test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
-    var entry = entries.filter(function (e) { return e.title === 'SupJav'; })[0];
-    assert.ok(entry, '订阅缺少 SupJav');
+    var entry = entries.filter(function (e) { return e.title === 'SupJav+'; })[0];
+    assert.ok(entry, '订阅缺少 SupJav+');
     var source = fs.readFileSync(PAGES_PATH, 'utf8');
     var moduleVersion = /MODULE_VERSION\s*=\s*'(\d+)'/.exec(source)[1];
     assert.strictEqual(String(entry.version), moduleVersion, 'version 与 MODULE_VERSION 不一致');
-    assert.ok(entry.find_rule.indexOf('/apps/supjav/') >= 0, 'find_rule 未指向 supjav');
+    assert.ok(entry.find_rule.indexOf('/apps/supjav_plus/') >= 0, 'find_rule 未指向 supjav');
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.ok(entry.search_url.indexOf('https://supjav.com/zh/?s=**') >= 0, 'search_url 不对: ' + entry.search_url);
     /* 统一基线版本：所有 ?v= 字面量（pages 与 core）都必须等于基线 */
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
         assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17') >= 0, '未引用内核');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

@@ -13,10 +13,13 @@
 | Jable | `docs/apps/jable_redesign/jable_redesign_pages.js` |
 | MissAV | `docs/apps/missav_plus/missav_plus_pages.js` |
 | SupJav | `docs/apps/supjav/supjav_pages.js` |
+| SupJav+ | `docs/apps/supjav_plus/supjav_plus_pages.js` |
 | AV01 | `docs/apps/av01/av01_pages.js` |
 
 每个应用都是自包含的单模块（`<app>_core.js` + `<app>_pages.js` 同目录）。
 历史原版 Jable / MissAV（及其共享 core 方案）已于 2026-09 移除。
+
+> **SupJav+** 与 SupJav 并存，用于对比测试页面加载优化（详情页播放地址懒解析、WebView 抓取屏蔽静态资源、中转请求复用最终 URL）。测试通过后将以 SupJav+ 替换原版 SupJav。
 
 ## 开发
 
@@ -24,11 +27,13 @@
 node test/jable_redesign.test.js
 node test/missav_plus.test.js
 node test/supjav.test.js
+node test/supjav_plus.test.js
 node test/av01.test.js
-node tools/preview_jable.js    # 生成 docs/dev/preview_jable.html
-node tools/preview_missav.js   # 生成 docs/dev/preview_missav.html
-node tools/preview_supjav.js   # 生成 docs/dev/preview_supjav.html
-node tools/preview_av01.js     # 生成 docs/dev/preview_av01.html
+node tools/preview_jable.js         # 生成 docs/dev/preview_jable.html
+node tools/preview_missav.js        # 生成 docs/dev/preview_missav.html
+node tools/preview_supjav.js        # 生成 docs/dev/preview_supjav.html
+node tools/preview_supjav_plus.js   # 生成 docs/dev/preview_supjav_plus.html
+node tools/preview_av01.js          # 生成 docs/dev/preview_av01.html
 ```
 
 细节见 `AGENTS.md`。

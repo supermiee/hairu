@@ -2,7 +2,7 @@
  * MissAV 冒烟测试。无依赖：node test/missav_plus.test.js
  * 桩掉海阔全局 API，跑真实渲染路径，并校验：
  *  - 订阅 JSON 的 MissAV 版本与 ?v= 一致
- *  - 数据内核为同目录 missav_plus_core.js（统一基线 ?v=16）
+ *  - 数据内核为同目录 missav_plus_core.js（统一基线 ?v=17）
  *  - 搜索翻页走 query 形式 page=fypage，与站点一致
  *  - 详情多清晰度播放 payload + 进度 id
  */
@@ -314,7 +314,7 @@ test('local 列表页可渲染（收藏/历史共用）', function () {
     assert.ok(titles(lastResult).indexOf('SNOS-313') >= 0, '收藏页缺卡片');
 });
 
-test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=16', function () {
+test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=17', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
     var entry = entries.filter(function (e) { return e.title === 'MissAV'; })[0];
     assert.ok(entry, '订阅缺少 MissAV');
@@ -327,18 +327,18 @@ test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=16', f
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
         assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=16') >= 0, '未引用同目录内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17') >= 0, '未引用同目录内核');
 });
 
-test('订阅里只保留最终 4 个站点，原版 Jable/MissAV 已下线', function () {
+test('订阅里只保留 5 个站点（SupJav+ 为与原版 SupJav 并存的优化版），原版 Jable/MissAV 已下线', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
     var titles = entries.map(function (e) { return e.title; }).sort();
-    assert.deepStrictEqual(titles, ['AV01', 'Jable', 'MissAV', 'SupJav'], '订阅条目不对: ' + titles);
-    /* 所有条目必须指向仍存在的 4 个 app 目录（原版 apps/jable、apps/missav 不允许再出现） */
+    assert.deepStrictEqual(titles, ['AV01', 'Jable', 'MissAV', 'SupJav', 'SupJav+'], '订阅条目不对: ' + titles);
+    /* 所有条目必须指向仍存在的 app 目录（原版 apps/jable、apps/missav 不允许再出现） */
     entries.forEach(function (e) {
         var m = /\/apps\/([a-z0-9_]+)\//.exec(e.find_rule);
         assert.ok(m, 'find_rule 未指向 apps/<app>/: ' + e.title);
-        assert.ok(['jable_redesign', 'missav_plus', 'supjav', 'av01'].indexOf(m[1]) >= 0, '订阅指向了已下线目录: ' + m[1]);
+        assert.ok(['jable_redesign', 'missav_plus', 'supjav', 'supjav_plus', 'av01'].indexOf(m[1]) >= 0, '订阅指向了已下线目录: ' + m[1]);
     });
     ['jable', 'missav'].forEach(function (dead) {
         assert.ok(!fs.existsSync(path.join(ROOT, 'docs', 'apps', dead)), '仍残留目录 docs/apps/' + dead);
@@ -346,9 +346,9 @@ test('订阅里只保留最终 4 个站点，原版 Jable/MissAV 已下线', fun
     });
 });
 
-test('4 个 app 版本号统一为同一基线（订阅 / pages / core 的 ?v= 全一致）', function () {
+test('5 个 app 版本号统一为同一基线（订阅 / pages / core 的 ?v= 全一致）', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
-    var pagesOf = { Jable: 'jable_redesign', MissAV: 'missav_plus', SupJav: 'supjav', AV01: 'av01' };
+    var pagesOf = { Jable: 'jable_redesign', MissAV: 'missav_plus', SupJav: 'supjav', 'SupJav+': 'supjav_plus', AV01: 'av01' };
     var baseline = null;
     entries.forEach(function (e) {
         var app = pagesOf[e.title];

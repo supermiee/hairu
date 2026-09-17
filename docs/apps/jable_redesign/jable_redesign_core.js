@@ -5,7 +5,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '16',
+        version: '17',
         sources: ['https://jable.tv', 'https://fs1.app'],
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
         /* 验证用移动端 UA + WebView 通道标记（与内嵌验证页同内核同 CookieManager） */

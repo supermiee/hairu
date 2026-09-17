@@ -1,14 +1,15 @@
 /*
- * SupJav 页面层（v10 风格）。
+ * SupJav+ 页面层（v10 风格，与原版 supjav 并存的性能优化版）。
  * 站点：https://supjav.com/zh（中文 locale；分类/标题/标签均为简体中文）。
- * 订阅只加载本模块；数据内核为 supjav_core.js（同目录，版本独立）。
+ * 订阅只加载本模块；数据内核为 supjav_plus_core.js（同目录，版本独立）。
+ * 主要差异：详情页不再提前解析播放地址（点「立即播放」才懒解析），页面加载更快。
  * 顶部 tab：首页 / 热门 / 有码 / 无码 / 女优 / 分类 / 我的。
  */
 (function () {
     var MODULE_VERSION = '17';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
-    var PAGES_URL = PUBLISH_BASE + 'apps/supjav/supjav_pages.js?v=' + MODULE_VERSION;
-    var CORE_URL = PUBLISH_BASE + 'apps/supjav/supjav_core.js?v=17';
+    var PAGES_URL = PUBLISH_BASE + 'apps/supjav_plus/supjav_plus_pages.js?v=' + MODULE_VERSION;
+    var CORE_URL = PUBLISH_BASE + 'apps/supjav_plus/supjav_plus_core.js?v=17';
 
     var ACCENT = '#E91E63';
     var SITE = 'https://supjav.com/zh';
@@ -20,7 +21,7 @@
 
     /* ---------- UI 状态 ---------- */
     function state(key, fallback) {
-        try { var value = getMyVar('sj.' + key, null); return (value === null || typeof value === 'undefined' || value === '') ? fallback : value; } catch (ignore) { return fallback; }
+        try { var value = getMyVar('sjp.' + key, null); return (value === null || typeof value === 'undefined' || value === '') ? fallback : value; } catch (ignore) { return fallback; }
     }
     function intState(key, fallback) {
         var value = parseInt(state(key, fallback), 10);
@@ -31,7 +32,7 @@
             try { putMyVar(stateKey, String(stateValue)); } catch (ignore) {}
             refreshPage(true);
             return 'hiker://empty';
-        }, 'sj.' + key, value);
+        }, 'sjp.' + key, value);
     }
 
     /* ---------- 常量 ---------- */
@@ -80,8 +81,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=17').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=17').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_pages.js?v=17').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_pages.js?v=17').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -93,8 +94,8 @@
     }
     function pageRoute(name, params, flags) {
         return $('hiker://empty' + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=17').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_pages.js?v=17').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_pages.js?v=17').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_pages.js?v=17').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function routeDirectory(kind, url, title) {
@@ -114,7 +115,7 @@
         result.push({ title: title, url: moreRoute || 'toast://仅供展示，不可点击', col_type: 'text_1', extra: { textSize: 17, lineVisible: false } });
     }
     function dedupeAcrossPages(scopeKey, pageNumber, items) {
-        var key = 'sj.seen.' + scopeKey;
+        var key = 'sjp.seen.' + scopeKey;
         var seen = [];
         try { seen = getMyVar(key, []) || []; } catch (ignoreSeen) { seen = []; }
         if (!(seen instanceof Array)) seen = [];
@@ -174,7 +175,7 @@
             desc: '番号 / 标题 / 女优名',
             col_type: 'input',
             url: "input ? (function(){ var pages; try { pages = requirejs('" + PAGES_URL + "'); } catch (e) { pages = $.require('" + PAGES_URL + "'); } pages.recordSearch(input); return pages.routeSearch(input); })() : 'toast://请输入关键词'",
-            extra: { defaultValue: state('search', ''), onChange: "putMyVar('sj.search', input)" }
+            extra: { defaultValue: state('search', ''), onChange: "putMyVar('sjp.search', input)" }
         };
     }
     function tabBar(result) {
@@ -371,31 +372,22 @@
 
             if (detail.description && detail.description !== app.text(detail.title)) result.push({ title: detail.description, col_type: 'rich_text', extra: { textSize: 14, lineVisible: false } });
 
-            var media = app.resolveMedia(page.html);
-            if (media.ok && media.mediaUrl) {
-                result.push({
-                    title: '▶ 立即播放' + (media.server ? '（' + media.server + '）' : ''),
-                    url: JSON.stringify({ urls: [media.mediaUrl], names: [media.server || '默认'], headers: [app.playerHeaders(page)] }),
-                    col_type: 'text_center_1',
-                    extra: { lineVisible: false, id: detail.url, backgroundColor: ACCENT, textSize: 16 }
-                });
-            } else {
-                result.push({
-                    title: '▶ 网页嗅探播放',
-                    desc: '未直接解析到媒体地址，将自动嗅探网页视频。',
-                    url: 'video://' + page.url + '#isVideo=true#',
-                    col_type: 'text_center_1',
-                    extra: { lineVisible: false, backgroundColor: ACCENT, textSize: 16 }
-                });
-            }
+            /* 播放地址懒解析：详情页渲染时不发任何中转请求，点「立即播放」时才逐线路解析 */
+            var servers = detail.servers || [];
+            result.push({
+                title: '▶ 立即播放',
+                desc: servers.length > 1 ? '点按后自动尝试可用线路' : '点按后自动解析播放地址',
+                url: servers.length ? playBest(servers, detail.url) : ('video://' + page.url + '#isVideo=true#'),
+                col_type: 'text_center_1',
+                extra: { lineVisible: false, id: detail.url, backgroundColor: ACCENT, textSize: 16 }
+            });
 
             /* 站点多条服务线路（TV/FST/ST/VOE）：点哪条就解析哪条，直链播放，解不出则丢给网页嗅探 */
-            var servers = detail.servers || [];
             if (servers.length > 1) {
                 sectionTitle(result, '🔀', '切换线路（' + servers.length + '）');
                 for (var si = 0; si < servers.length; si++) {
                     result.push({
-                        title: servers[si].name + (media.ok && media.server === servers[si].name ? ' · 当前' : ''),
+                        title: servers[si].name,
                         url: playLine(servers[si]),
                         col_type: 'flex_button',
                         extra: { lineVisible: false }
@@ -421,12 +413,27 @@
         sectionTitle(result, emoji, title);
         for (var i = 0; i < links.length; i++) result.push({ title: links[i].title, url: routeList(links[i].url, links[i].title), col_type: 'flex_button' });
     }
+    /* 主播放按钮：点播时才逐线路解析（懒解析）：能直链就返回播放 payload，否则交给海阔网页嗅探 */
+    function playBest(servers, detailUrl) {
+        return $('hiker://empty').lazyRule(function (payload) {
+            var app;
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17'); }
+            var best = app.resolveBest(payload.servers || []);
+            if (best.mediaUrl) {
+                return JSON.stringify({ urls: [best.mediaUrl], names: [best.server || '默认'], headers: [app.playerHeaders({ url: best.pageUrl || app.config.playerHost })] });
+            }
+            if (best.pageUrl) return 'video://' + best.pageUrl + '#isVideo=true#';
+            if (payload.detailUrl) return 'video://' + payload.detailUrl + '#isVideo=true#';
+            return 'toast://未解析到可用线路，请换一条';
+        }, { servers: servers || [], detailUrl: detailUrl || '' });
+    }
     /* 点某条线路才去解析该线路：能直链就返回播放 payload，否则交给海阔网页嗅探 */
     function playLine(server) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17'); }
             var resolved = app.resolveServer(payload);
             if (resolved.media) {
                 return JSON.stringify({ urls: [resolved.media], names: [payload.name], headers: [app.playerHeaders({ url: resolved.pageUrl || app.config.playerHost })] });
@@ -438,8 +445,8 @@
     function favoriteToggle(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17'); }
             var id = 'fav:' + payload.url;
             var added = app.toggleFavorite(payload);
             var toast = 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -471,7 +478,7 @@
         var diagnostics = [];
         try { diagnostics = app.listValue('diagnostics', []) || []; } catch (ignoreDiag) { diagnostics = []; }
         setResult([
-            { title: '设置与诊断', desc: 'SupJav · 统一基线 v' + MODULE_VERSION, col_type: 'long_text', extra: { textSize: 19, lineVisible: false } },
+            { title: '设置与诊断', desc: 'SupJav+ · 统一基线 v' + MODULE_VERSION, col_type: 'long_text', extra: { textSize: 19, lineVisible: false } },
             { title: '📡 验证并同步（Cloudflare）', desc: '站点要求人机验证时必看', url: routeVerification(), col_type: 'text_center_1' },
             { title: '搜索历史：' + (searchHistory.join(' · ') || '暂无'), col_type: 'text_1' },
             { title: '请求诊断：' + (diagnostics.length ? (diagnostics.length + ' 条') : '暂无'), desc: diagnostics.length ? JSON.stringify(diagnostics[0]).slice(0, 200) : '', col_type: 'long_text', extra: { textSize: 13, lineVisible: false } },
@@ -482,8 +489,8 @@
                         content: '将清除缓存、收藏与历史等本地数据，确定继续？',
                         confirm: $.toString(function () {
                             var app2;
-                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17'); }
-                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17'); }
+                            try { app2 = requirejs('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17'); }
+                            catch (e) { app2 = $.require('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17'); }
                             app2.clearLocal();
                             try { refreshPage(false); } catch (ignoreRefresh) {}
                             return 'toast://已清除';
@@ -492,7 +499,7 @@
                     });
                     return 'hiker://empty';
                 }
-                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17').clearLocal(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17').clearLocal(); }
                 refreshPage(false);
                 return 'toast://已清除';
             }), col_type: 'text_center_1' }
@@ -508,8 +515,8 @@
             { title: '第一步：完成人机验证', desc: '下方网页勾选 Cloudflare 验证后，点击第二步返回。小程序会自动改用与该网页同源的通道加载数据，无需手动转移凭证。', col_type: 'long_text', extra: { textSize: 16, lineVisible: false } },
             { title: '打开验证网页', url: source, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: source, canBack: true } },
             { title: '第二步：验证成功后，点此返回并刷新', url: $('hiker://empty#noLoading#').lazyRule(function () {
-                try { putVar('supjav.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav/supjav_core.js?v=17').clearPageCache(); }
+                try { putVar('supjavplus.webviewMode', '1'); } catch (ignoreFlag) {}
+                try { requirejs('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17').clearPageCache(); }
                 back(true);
                 return 'toast://已记录验证状态，请刷新';
             }), col_type: 'scroll_button', extra: { backgroundColor: ACCENT } },

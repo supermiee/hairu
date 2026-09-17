@@ -7,21 +7,21 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
-- Apps (4 total, each a self-contained single module — `<app>_core.js` + `<app>_pages.js` in its own folder, all in the v10 UI style): `jable_redesign` — **Jable**, `missav_plus` — **MissAV**, `supjav` — **SupJav**, `av01` — **AV01**. The folder names keep the historical `_redesign`/`_plus` suffixes; the subscription site names have no `+`. The original `jable`/`missav` apps (and the shared-core arrangement where the redesigned UIs reused them) were removed 2026-09 — there is no original/`+` split and no backward-compatibility burden any more.
+- Apps (5 total, each a self-contained single module — `<app>_core.js` + `<app>_pages.js` in its own folder, all in the v10 UI style): `jable_redesign` — **Jable**, `missav_plus` — **MissAV**, `supjav` — **SupJav**, `supjav_plus` — **SupJav+**, `av01` — **AV01**. The folder names keep the historical `_redesign`/`_plus` suffixes. **SupJav+ coexists with the original SupJav for side-by-side A/B testing** (page-load optimisations: lazy detail playback resolution, `blockRules` on the WebView fetch, no redundant redirect request); once the user signs off, SupJav+ replaces SupJav and the original `supjav` directory + entry are removed (see "SupJav+ notes"). The original `jable`/`missav` apps (and the shared-core arrangement where the redesigned UIs reused them) were removed 2026-09.
 - **AV01 is a React SPA**: its HTML is a ~4 KB empty shell, so its core parses a REST JSON API (`/api/v1/...`) instead of HTML. See "AV01 notes".
-- Tests (one file per app): `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js`, `node test/av01.test.js`.
-- Versioning is repo-wide and unified: one baseline number for all 4 apps, used by the subscription `version`, every `MODULE_VERSION`, every `?v=` (pages + core) and every core `CONFIG.version`. Bump all four together (see "Critical: version bump").
+- Tests (one file per app): `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js`, `node test/supjav_plus.test.js`, `node test/av01.test.js`.
+- Versioning is repo-wide and unified: one baseline number for all 5 apps, used by the subscription `version`, every `MODULE_VERSION`, every `?v=` (pages + core) and every core `CONFIG.version`. Bump all five together (see "Critical: version bump").
 
 ## Critical: version bump (unified baseline)
 
-Clients cache modules by URL, and all four apps share **one unified baseline version** (currently **16**), so a release keeps them lock-stepped:
+Clients cache modules by URL, and all five apps share **one unified baseline version** (currently **17**), so a release keeps them lock-stepped:
 
-1. `version` of **all four** entries in `docs/subscription.json`
+1. `version` of **all five** entries in `docs/subscription.json`
 2. `MODULE_VERSION` at the top of **each** `docs/apps/<app>/<app>_pages.js`
 3. Every hardcoded `?v=N` literal — both the pages URL and the core URL, in every `$().rule()`/`lazyRule()` callback string and in `CORE_URL`
 4. `CONFIG.version` in **each** `<app>_core.js` (displayed in the settings page, so it must match the baseline too)
 
-Bump **all four apps together** to the new number even if only one app's code changed; that is what "unified" means here and it keeps the invariant checkable. `node test/<app>.test.js` enforces it per app and `test/missav_plus.test.js` has a repo-wide guard (all four subscription versions + `MODULE_VERSION` + `?v=` literals equal).
+Bump **all five apps together** to the new number even if only one app's code changed; that is what "unified" means here and it keeps the invariant checkable. `node test/<app>.test.js` enforces it per app and `test/missav_plus.test.js` has a repo-wide guard (all five subscription versions + `MODULE_VERSION` + `?v=` literals equal).
 
 Baseline number rule: **never reset to a number that was ever published** (a client may still have that URL's old content cached — e.g. `av01_core.js?v=1` predates `buildMaster()`); always move forward. Never `requirejs` a module without `?v=`.
 
@@ -43,12 +43,12 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 
 ## Useful APIs (verified vs help_js.md + JSEngine.java, 2026-09)
 
-- **局部刷新**：`updateItem(id, {title, extra:{id}})` updates one card in place via `extra.id` (id must be globally unique across pages; we use `'fav:'+url`). Siblings: `deleteItem` / `deleteItemByCls` / `addItemAfter` / `addItemBefore` / `findItem` / `findItemsByCls` (help_js.md:864-922; JSEngine.java:1167). All four apps' favorite toggles use this with a `refreshPage(false)` fallback (`typeof updateItem` guard).
+- **局部刷新**：`updateItem(id, {title, extra:{id}})` updates one card in place via `extra.id` (id must be globally unique across pages; we use `'fav:'+url`). Siblings: `deleteItem` / `deleteItemByCls` / `addItemAfter` / `addItemBefore` / `findItem` / `findItemsByCls` (help_js.md:864-922; JSEngine.java:1167). All apps' favorite toggles use this with a `refreshPage(false)` fallback (`typeof updateItem` guard).
 - **caveat**: pages containing both an `input` and `flex_button`/`scroll_button` must not use dynamic refresh on the flex/scroll items — it global-refreshes and blurs the input (help_js.md:924-926). Detail pages are safe (no input).
 - **confirm** 二次弹窗：`confirm({title, content, confirm: $.toString(fn), cancel: $.toString(fn)})` — the callback strings are isolated like rule callbacks; require the core inside them. Jable「清除緩存與本地數據」uses it.
 - **showLoading/hideLoading**: NOT installed yet; if added, it belongs in the per-app core's webview branch (e.g. `jable_redesign_core.js`) (help_js.md:485-491).
 - **Page tags**: settings-family routes append `#noRecordHistory##noRefresh#` (no history record, no pull-refresh) — pattern in `jable_redesign_pages.js pageRoute`. `#autoCache#` caches only page 1 for instant reopen — only for low-frequency read-only pages.
-- `fetchCodeByWebView` already runs with `checkJs` (extract only when a marker selector exists) in all four cores.
+- `fetchCodeByWebView` already runs with `checkJs` (extract only when a marker selector exists) in all cores.
 - **Do not exist** (verified docs+source+two community repos): `updateAll`, `refreshx://`, `lazyConvert`, `setKey` (JS API). Real names: `refreshX5WebView(url)`, `setItem/getItem/clearItem`.
 - Full JS API surface = the **127** public methods of `JSEngine.java` (re-counted 2026-09); consult it before assuming an API is missing. Note the cookie helper's real name is `fetchCookie(url, options)`.
 
@@ -101,6 +101,17 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 - **Cloudflare**: `supjav.com` is managed-challenged (curl always 403 `Just a moment`, even with a browser UA). Same `isHardBlock` + `fetchCodeByWebView` fallback + `supjav.webviewMode` +「验证并同步」flow as MissAV. `img.supjav.com`, the `lk1.supremejav.com` proxy and the m3u8 CDN are **not** challenged, so cover images and playback work without verification.
 - State keys are prefixed `sj.`. Preview: `node tools/preview_supjav.js` → `docs/dev/preview_supjav.html`.
 
+## SupJav+ notes (performance fork, 2026-09)
+
+- `docs/apps/supjav_plus/supjav_plus_{core,pages}.js` — same site/parsers/UI as SupJav, hand-forked to remove page-load latency; **coexists with the original `supjav` app for A/B testing** (subscription title `SupJav+`). The user will decide when to promote it to replace the original; that promotion = delete `docs/apps/supjav/`, `test/supjav.test.js`, the `SupJav` subscription entry, rename title, then the folder `supjav_plus` may stay (folder name is the module URL — do **not** rename folders).
+- State keys are prefixed `supjavplus.` (core cache) / `sjp.` (UI state) so favorites/history/cache stay independent from the original `supjav.`/`sj.` — A/B data does not mix.
+- **Three optimisations vs the original (verified with an instrumented request-count harness, `node test/supjav_plus.test.js`):**
+  1. **Detail playback is lazy.** `renderDetail` no longer calls `resolveMedia`; the `▶ 立即播放` button is a `lazyRule` (`playBest(servers, detailUrl)`) that calls the new `core.resolveBest(servers)` only on tap. Original detail page = 1 WebView + 2 relay requests *before* `setResult` (6 relay requests when every line fails), and re-opening a cached detail still re-resolved; SupJav+ detail = 1 WebView, 0 relay at render, and 0 for a cached re-open. The `切换线路` chips stay independent lazy rules.
+  2. **WebView fetch sends `CONFIG.blockRules`** (images/CSS/fonts/media) — documented in `help_js.md:1033`/`help_col_type.md:227` as "拦截部分让网页更快加载" and honoured by `ArticleWebkitHolder.shouldInterceptRequest`. We only parse HTML, so blocking those subresources shortens `onPageFinished`.
+  3. **`resolveServer` reuses the final URL from the fetch response** (`parseResponse` now reads the `url` field that `HttpHelper` returns under `withStatusCode`, `HttpHelper.java:343-350`) instead of firing a second `redirect:false` request just to read `Location`. A successful line is now **1** relay request. `redirectUrl()` is kept only as a fallback for responses without a `url` field (and for the non-2xx path).
+- `resolveBest(servers)` is the new core export; `resolveMedia(html)` is kept as a compat wrapper (`resolveBest(playerServers(html))`).
+- Test: `node test/supjav_plus.test.js` (30 cases) additionally guards the request counts above — "详情页渲染时不发中转请求", "成功线路只发 1 次请求", `blockRules` present. Preview: `node tools/preview_supjav_plus.js` → `docs/dev/preview_supjav_plus.html`.
+
 ## AV01 notes
 
 - `docs/apps/av01/av01_pages.js` (see its `MODULE_VERSION`) + `av01_core.js` (same folder; bumped together with the page since this is a single-module app). 7 top tabs: 首页/最近更新/热门/女优/片商/分类/我的, 玫红 `#E91E63` selection, v10 home (first card `pic_1`, rest `movie_2`, `text_1` clickable section titles with `更多 ›`), detail hero `pic_1_full` → meta chips → accent play → favorite/原网页 → 女优/片商/标签 chips → 猜你喜欢. Strings Simplified (site `/cn` is Simplified).
@@ -130,13 +141,14 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 ## Verifying changes
 
 ```
-node test/jable_redesign.test.js   # plus missav_plus.test.js, supjav.test.js, av01.test.js
+node test/jable_redesign.test.js   # plus missav_plus.test.js, supjav.test.js, supjav_plus.test.js, av01.test.js
 node tools/preview_jable.js    # visual preview → docs/dev/preview_jable.html
 node tools/preview_missav.js   # visual preview → docs/dev/preview_missav.html
 node tools/preview_supjav.js   # visual preview → docs/dev/preview_supjav.html
+node tools/preview_supjav_plus.js  # visual preview → docs/dev/preview_supjav_plus.html
 node tools/preview_av01.js     # visual preview → docs/dev/preview_av01.html
 ```
 
-Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all four before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script, the SupJav HTML pages, and the AV01 API JSON/m3u8 responses) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
+Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all five before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script, the SupJav HTML pages, and the AV01 API JSON/m3u8 responses) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
 
 Reference material (read-only clones, never commit here): Hiker API docs at `~/code/developer-reference/Documents/docs/hikerview` (`help_api.md`, `help_js.md`, `help_rules.md`, `help_film_list_rules.md`), community sample rules at `~/code/developer-examples/hikerViewRules` (plaintext ES6 — adapt, don't copy verbatim), and the Android app source at `~/code/developer-reference/hikerView`. After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.
