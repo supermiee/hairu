@@ -16,7 +16,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '1.5.0',
+        version: '1.6.0',
         source: 'https://www.av01.media',
         localePath: '/cn',
         lang: 'cn',
@@ -145,13 +145,6 @@
         var res = requestJson(url, options);
         if (res.ok) writeCache(key, res);
         else if (res.hardBlocked) writeCache(key, res);
-        return res;
-    }
-    function fetchText(url, ttl, options) {
-        var key = 'text.' + url, cached = readCache(key, ttl || 300);
-        if (cached) return cached;
-        var res = requestText(url, options);
-        if (res.ok) writeCache(key, res);
         return res;
     }
     function postJsonCached(url, payload, ttl) {
@@ -473,78 +466,6 @@
         return { ok: true, urls: urls, names: names, accessToken: accessToken, master: masterText, local: !!local, variants: variants };
     }
     function playerHeaders() { return { 'User-Agent': CONFIG.mobileUa, Referer: site() + '/' }; }
-    /* 锁定单档清晰度（不做 ABR）的直连地址，用于让用户手动排查「是网速还是播放器」 */
-    function qualityUrl(id, quality) {
-        var res = resolveMedia(id);
-        if (!res.ok) return null;
-        var variants = res.variants || [];
-        for (var i = 0; i < variants.length; i++) {
-            if (variantLabel(variants[i]) === quality) return { url: manifestUrl(id, variants[i].file, res.accessToken), name: quality };
-        }
-        return null;
-    }
-    /* 直连（带 token）的某档清单地址，供「复制播放地址」到第三方播放器验证 */
-    function remotePlayUrl(id, quality) {
-        var res = resolveMedia(id);
-        if (!res.ok) return '';
-        var names = res.names, target = quality || '720P';
-        for (var i = 0; i < names.length; i++) if (names[i] === target) return res.urls[i];
-        return res.urls[res.local ? 1 : 0] || res.urls[0];
-    }
-    /* 播放自检：在设备上把每一跳的耗时/体积/速度测出来（详情页「🩺 播放自检」入口调用） */
-    function diagnose(id) {
-        var lines = [], t;
-        var g = geo();
-        lines.push('① geo 令牌：' + (g ? ('成功（token_v2 ' + String(g.token_v2).length + ' 字符，expires=' + g.expires + '）') : '失败'));
-        if (!g) return { ok: false, lines: lines, error: { message: 'geo.js 拿不到令牌，播放必然失败' } };
-        t = now();
-        var cdnUrl = CONFIG.cdnHost + '/api/v1/videos/' + id + '/cdn-access?token_v2=' + encode(g.token_v2) + '&expires=' + encode(g.expires) + '&ip=' + encode(g.ip);
-        var cdn = requestJson(cdnUrl, { headers: { 'User-Agent': CONFIG.userAgent, Referer: site() + '/', Accept: 'application/json, text/plain, */*' } });
-        var accessToken = cdn.ok && cdn.data && cdn.data.access_token ? cdn.data.access_token : '';
-        lines.push('② cdn-access：' + (accessToken ? ('成功，' + (now() - t) + 'ms') : ('失败，' + (now() - t) + 'ms')));
-        if (!accessToken) return { ok: false, lines: lines, error: { message: 'CDN 访问令牌获取失败' } };
-        t = now();
-        var master = requestText(api('/videos/' + id + '/manifest/master.m3u8'), { headers: { 'User-Agent': CONFIG.userAgent, Referer: site() + '/', Accept: '*/*' } });
-        var variants = master.ok ? parseVariants(master.text) : [];
-        lines.push('③ master.m3u8：' + (master.ok ? ('成功，' + (now() - t) + 'ms，' + variants.length + ' 档码率') : ('失败，' + (now() - t) + 'ms')));
-        if (!variants.length) return { ok: false, lines: lines, error: { message: 'master.m3u8 解析不出码率档' } };
-        variants = variants.sort(function (a, b) { return (a.height || a.bandwidth) - (b.height || b.bandwidth); });
-        var picked = null;
-        for (var i = 0; i < variants.length; i++) {
-            var url = manifestUrl(id, variants[i].file, accessToken);
-            t = now();
-            var pl = requestText(url, { headers: { 'User-Agent': CONFIG.userAgent, Referer: site() + '/', Accept: '*/*' }, timeout: 30000 });
-            var ms = now() - t;
-            if (!pl.ok) { lines.push('④ ' + variantLabel(variants[i]) + ' 清单：失败，' + ms + 'ms'); continue; }
-            var segs = (String(pl.text).match(/\.(?:m4s|ts)/g) || []).length;
-            lines.push('④ ' + variantLabel(variants[i]) + ' 清单：' + ms + 'ms，' + Math.round(pl.text.length / 1024) + 'KB，' + segs + ' 分片');
-            if (!picked) picked = { label: variantLabel(variants[i]), text: pl.text };
-        }
-        if (picked) {
-            var seg = /https?:\/\/\S+\.(?:m4s|ts)\S*/.exec(picked.text);
-            if (seg) {
-                var p1 = speedProbe(seg[0], 2000);
-                lines.push('⑤ 分片首包延迟（Range 2KB）：' + (p1.ok ? (p1.ms + 'ms') : ('失败，' + p1.ms + 'ms')));
-                var p2 = speedProbe(seg[0], 3000000);
-                lines.push('⑥ 持续速度①（Range 3MB）：' + (p2.ok ? (p2.ms + 'ms，' + p2.kb + 'KB，约 ' + p2.kbps + ' KB/s') : ('失败，' + p2.ms + 'ms')));
-                var p3 = speedProbe(seg[0], 3000000);
-                lines.push('⑦ 持续速度②（Range 3MB，同一连接复用）：' + (p3.ok ? (p3.ms + 'ms，' + p3.kb + 'KB，约 ' + p3.kbps + ' KB/s') : ('失败，' + p3.ms + 'ms')));
-                var best = Math.max(p2.kbps, p3.kbps);
-                lines.push('⑧ 带宽结论：约 ' + best + ' KB/s → ' + (best >= 400 ? '够 1080P' : (best >= 200 ? '最多 720P' : (best >= 60 ? '只能 360P' : '连 360P 都勉强'))));
-            }
-        }
-        var local = localMaster(id, buildMaster(master.text, id, accessToken, CONFIG.limits.abrMaxHeight));
-        lines.push('⑨ 交给播放器：' + (local ? ('本地 ABR master（' + local + '）') : '直连多档清单'));
-        lines.push('⑩ 分片格式：' + (/\.m4s/.test(picked ? picked.text : '') ? 'CMAF fMP4（.m4s + #EXT-X-MAP）' : 'MPEG-TS'));
-        return { ok: true, lines: lines, accessToken: accessToken };
-    }
-    function speedProbe(url, rangeBytes) {
-        var t = now();
-        var r = requestText(url, { headers: { 'User-Agent': CONFIG.mobileUa, Range: 'bytes=0-' + rangeBytes }, timeout: 30000 });
-        var ms = now() - t, kb = r.ok ? Math.round(r.text.length / 1024) : 0;
-        return { ok: r.ok, ms: ms, kb: kb, kbps: (r.ok && ms > 0 && kb > 0) ? Math.round(kb / (ms / 1000)) : 0 };
-    }
-
     /* ---------------- 本地数据 ---------------- */
     function readList(name) { try { return storage0.getMyVar(cacheKey(name)) || []; } catch (ignore) { return []; } }
     function writeList(name, list) { try { storage0.putMyVar(cacheKey(name), list); } catch (ignore) {} return list; }
@@ -579,7 +500,7 @@
 
     var exported = {
         config: CONFIG, site: site, api: api, text: text, decode: decode, localized: localized, nameOf: nameOf,
-        requestText: requestText, requestJson: requestJson, postJson: postJson, fetchJson: fetchJson, fetchText: fetchText,
+        requestText: requestText, requestJson: requestJson, postJson: postJson, fetchJson: fetchJson,
         postJsonCached: postJsonCached, clearPageCache: clearPageCache, isHardBlock: isHardBlock, webviewMode: webviewMode,
         geo: geo, signedMedia: signedMedia, coverUrl: coverUrl, assetUrl: assetUrl,
         durationText: durationText, dateText: dateText, viewsText: viewsText,
@@ -589,7 +510,6 @@
         detail: detail, similars: similars, parseVariants: parseVariants, variantLabel: variantLabel,
         manifestUrl: manifestUrl, variantUrl: variantUrl, buildMaster: buildMaster, synthMaster: synthMaster,
         localMaster: localMaster, resolveMedia: resolveMedia, playerHeaders: playerHeaders,
-        remotePlayUrl: remotePlayUrl, qualityUrl: qualityUrl, diagnose: diagnose,
         isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, addSearch: addSearch,
         listValue: listValue, setValue: setValue, readList: readList, writeList: writeList, clearLocal: clearLocal
     };

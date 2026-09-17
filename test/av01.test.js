@@ -56,7 +56,6 @@ var FIXTURE_TAGS = readJson('av01_tags.json');
 var FIXTURE_ACTRESS_VIDEOS = readJson('av01_actress_videos.json');
 var FIXTURE_GEO = readJson('av01_geo.json');
 var FIXTURE_MASTER = readText('av01_master.m3u8');
-var FIXTURE_VARIANT = readText('av01_variant.m3u8');
 var ACCESS_TOKEN = 'TEST.ACCESS.TOKEN';
 
 function wrap(payload) { return JSON.stringify({ body: typeof payload === 'string' ? payload : JSON.stringify(payload), headers: {}, statusCode: 200 }); }
@@ -69,7 +68,6 @@ function fetchPCImpl(url, options) {
     if (/edge\/geo\.js/.test(s)) return wrap(FIXTURE_GEO);
     if (/cdn-access/.test(s)) return wrap({ access_token: ACCESS_TOKEN, expires_at: 1900000000 });
     if (/manifest\/master\.m3u8/.test(s)) return wrap(FIXTURE_MASTER);
-    if (/manifest\/index90-/.test(s)) return wrap(FIXTURE_VARIANT);
     if (/customers\.iw01\.xyz/.test(s)) return wrap('0123456789');
     if (/videos\/types\/combined/.test(s)) return wrap(FIXTURE_HOME);
     if (/videos\/types\/latest/.test(s)) return wrap(FIXTURE_LATEST);
@@ -445,9 +443,9 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.strictEqual(entry.search_url, 'https://www.av01.media/cn/search?q=**&page=fypage', 'search_url 不对: ' + entry.search_url);
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=6', '内核引用应为 ?v=3，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=7', '内核引用应为 ?v=3，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=6') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=7') >= 0, '未引用内核');
 });
 
 test('没有 1080P 的影片：档位只按真实存在的给，且裁到空时不会产出空清单', function () {
@@ -473,42 +471,21 @@ test('没有 1080P 的影片：档位只按真实存在的给，且裁到空时�
     } finally { global.fetchPC = old; delete global.writeFile; delete global.getPath; }
 });
 
-test('播放自检：resolveMedia / remotePlayUrl / diagnose 的落地数据', function () {
-    store = {};
-    global.writeFile = function () {};
-    global.getPath = function (p) { return 'file:///tmp/' + p.split('/').pop(); };
-    try {
-        assert.ok(/^https:\/\/www\.av01\.media\/api\/v1\/videos\/219346\/manifest\/index90-sv2-v1-a1\.m3u8\?access_token=/.test(core.remotePlayUrl(219346, '720P')), 'remotePlayUrl 应给直连 720P: ' + core.remotePlayUrl(219346, '720P'));
-        var q = core.qualityUrl(219346, '1080P');
-        assert.ok(q && /index90-sv3-v1-a1\.m3u8\?access_token=/.test(q.url), 'qualityUrl 应锁定 1080P: ' + JSON.stringify(q));
-        assert.deepStrictEqual(Object.keys(q).sort(), ['name', 'url']);
-        assert.strictEqual(core.qualityUrl(219346, '480P'), null, '不存在的清晰度应返回 null');
-        var report = core.diagnose(219346);
-        assert.ok(report.ok, '自检失败: ' + JSON.stringify(report.lines));
-        var text = report.lines.join('\n');
-        assert.ok(/① geo 令牌：成功/.test(text), '缺 geo 结果: ' + text);
-        assert.ok(/② cdn-access：成功/.test(text), '缺 cdn-access 结果');
-        assert.ok(/③ master\.m3u8：成功，\d+ms，3 档码率/.test(text), '缺 master 结果: ' + text);
-        assert.ok(/④ 360P 清单：\d+ms，\d+KB，6 分片/.test(text), '缺清单体积/分片数: ' + text);
-        assert.ok(/⑤ 分片首包延迟（Range 2KB）：\d+ms/.test(text), '缺首包延迟: ' + text);
-        assert.ok(/⑥ 持续速度①（Range 3MB）：\d+ms，\d+KB，约 \d+ KB\/s/.test(text), '缺持续速度: ' + text);
-        assert.ok(/⑧ 带宽结论：约 \d+ KB\/s → /.test(text), '缺带宽结论: ' + text);
-        assert.ok(/⑩ 分片格式：CMAF fMP4/.test(text), '未识别出 CMAF: ' + text);
-    } finally { delete global.writeFile; delete global.getPath; }
-});
-
-test('详情页含播放自检/复制直连地址/原站播放器入口', function () {
+test('正式版界面：详情页不再包含任何调试/自检入口', function () {
     store = {};
     pages.renderRouter({ name: 'renderDetail', params: { url: 'https://www.av01.media/cn/video/219346/mird-281-lada', title: 'x' } });
     var t = titles(lastResult);
-    assert.ok(t.indexOf('播放自检') >= 0, '缺播放自检入口: ' + t.slice(0, 300));
-    assert.ok(t.indexOf('复制直连播放地址') >= 0, '缺复制入口');
-    assert.ok(t.indexOf('用原站播放器播放') >= 0, '缺原站播放器入口');
-    assert.ok(t.indexOf('固定清晰度自测') >= 0, '缺固定清晰度自测行: ' + t.slice(0, 400));
-    lastResult = null;
-    pages.renderRouter({ name: 'renderDiagnostics', params: { id: 219346, url: 'https://www.av01.media/cn/video/219346/mird-281-lada' } });
-    assert.ok(Array.isArray(lastResult) && lastResult.length, '自检页未输出');
-    assert.ok(titles(lastResult).indexOf('未注册的页面') < 0, '自检页未注册');
+    ['播放自检', '复制直连播放地址', '用原站播放器播放', '固定清晰度自测', '带宽结论'].forEach(function (bad) {
+        assert.strictEqual(t.indexOf(bad), -1, '详情页仍残留调试入口: ' + bad);
+    });
+    var src = fs.readFileSync(PAGES_PATH, 'utf8');
+    assert.strictEqual(src.indexOf('renderDiagnostics'), -1, '路由仍注册了 renderDiagnostics');
+    assert.strictEqual(src.indexOf('copyPlayUrl'), -1, '仍残留 copyPlayUrl');
+    assert.strictEqual(src.indexOf('playQuality'), -1, '仍残留 playQuality');
+    var coreSrc = fs.readFileSync(CORE_PATH, 'utf8');
+    ['diagnose', 'speedProbe', 'remotePlayUrl', 'qualityUrl'].forEach(function (name) {
+        assert.strictEqual(coreSrc.indexOf('function ' + name), -1, '内核仍残留调试函数: ' + name);
+    });
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
