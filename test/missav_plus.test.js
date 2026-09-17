@@ -2,7 +2,7 @@
  * MissAV 冒烟测试。无依赖：node test/missav_plus.test.js
  * 桩掉海阔全局 API，跑真实渲染路径，并校验：
  *  - 订阅 JSON 的 MissAV 版本与 ?v= 一致
- *  - 数据内核为同目录 missav_plus_core.js（统一基线 ?v=17）
+ *  - 数据内核为同目录 missav_plus_core.js（统一基线 ?v=18）
  *  - 搜索翻页走 query 形式 page=fypage，与站点一致
  *  - 详情多清晰度播放 payload + 进度 id
  */
@@ -314,7 +314,7 @@ test('local 列表页可渲染（收藏/历史共用）', function () {
     assert.ok(titles(lastResult).indexOf('SNOS-313') >= 0, '收藏页缺卡片');
 });
 
-test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=17', function () {
+test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=18', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
     var entry = entries.filter(function (e) { return e.title === 'MissAV'; })[0];
     assert.ok(entry, '订阅缺少 MissAV');
@@ -327,7 +327,7 @@ test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=17', f
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
         assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17') >= 0, '未引用同目录内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18') >= 0, '未引用同目录内核');
 });
 
 test('订阅里只保留 5 个站点（SupJav+ 为与原版 SupJav 并存的优化版），原版 Jable/MissAV 已下线', function () {

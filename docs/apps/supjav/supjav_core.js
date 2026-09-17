@@ -6,7 +6,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '17',
+        version: '18',
         source: 'https://supjav.com',
         /* 中文站点（qTranslate 语言子目录），标题/分类/标签均为简体中文 */
         localePath: '/zh',

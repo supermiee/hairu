@@ -14,7 +14,7 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 
 ## Critical: version bump (unified baseline)
 
-Clients cache modules by URL, and all five apps share **one unified baseline version** (currently **17**), so a release keeps them lock-stepped:
+Clients cache modules by URL, and all five apps share **one unified baseline version** (currently **18**), so a release keeps them lock-stepped:
 
 1. `version` of **all five** entries in `docs/subscription.json`
 2. `MODULE_VERSION` at the top of **each** `docs/apps/<app>/<app>_pages.js`
@@ -110,7 +110,8 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
   2. **WebView fetch sends `CONFIG.blockRules`** (images/CSS/fonts/media) — documented in `help_js.md:1033`/`help_col_type.md:227` as "拦截部分让网页更快加载" and honoured by `ArticleWebkitHolder.shouldInterceptRequest`. We only parse HTML, so blocking those subresources shortens `onPageFinished`.
   3. **`resolveServer` reuses the final URL from the fetch response** (`parseResponse` now reads the `url` field that `HttpHelper` returns under `withStatusCode`, `HttpHelper.java:343-350`) instead of firing a second `redirect:false` request just to read `Location`. A successful line is now **1** relay request. `redirectUrl()` is kept only as a fallback for responses without a `url` field (and for the non-2xx path).
 - `resolveBest(servers)` is the new core export; `resolveMedia(html)` is kept as a compat wrapper (`resolveBest(playerServers(html))`).
-- Test: `node test/supjav_plus.test.js` (30 cases) additionally guards the request counts above — "详情页渲染时不发中转请求", "成功线路只发 1 次请求", `blockRules` present. Preview: `node tools/preview_supjav_plus.js` → `docs/dev/preview_supjav_plus.html`.
+- **FST (`hls3` is a `.txt` master) fix.** FC2's packed `links` object exposes `hls2` (`.m3u8`, signed `premilkyway.com`) and `hls3` (`.txt`, e.g. `mindspiremarketing.sbs`), and the site's own player is `links.hls4 || links.hls3 || links.hls2`. The old `packedMedia()` returned the *first* match (the `.txt`), but **Hiker decides "is m3u8" by the URL containing `.m3u8`** (`help_rules.md:227`), so the `.txt` index was handed to the player as a plain file and failed. SupJav+ now collects every hls/file candidate (`packedMediaCandidates`) and `packedMedia` prefers a `.m3u8` (`.txt` only as last resort). Also `resolveServer` rejects a `finalUrl` whose origin is still `CONFIG.playerHost` (an older `fetchPC` may return the request URL, not the 302 target) and falls back to `redirectUrl()` — so the FST sniff fallback points at `fc2stream.tv`, not the non-framable `?c=` relay page. (*Pre-existing bug, shared with the original; only fixed in SupJav+ so far.*)
+- Test: `node test/supjav_plus.test.js` (31 cases) additionally guards the request counts above — "详情页渲染时不发中转请求", "成功线路只发 1 次请求", `blockRules` present. Preview: `node tools/preview_supjav_plus.js` → `docs/dev/preview_supjav_plus.html`.
 
 ## AV01 notes
 

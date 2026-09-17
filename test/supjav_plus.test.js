@@ -94,7 +94,7 @@ test('模块可加载且导出齐全', function () {
     ['renderHome', 'renderList', 'renderSearch', 'renderRouter', 'renderDetail', 'recordSearch', 'routeDirectory', 'routeVerification'].forEach(function (k) {
         assert.strictEqual(typeof pages[k], 'function', '缺少导出 ' + k);
     });
-    ['getList', 'parseHomeSections', 'parseCards', 'parseCast', 'parseDetail', 'resolveBest', 'resolveMedia', 'parsePlayerPage', 'listValue', 'clearLocal'].forEach(function (k) {
+    ['getList', 'parseHomeSections', 'parseCards', 'parseCast', 'parseDetail', 'resolveBest', 'resolveMedia', 'packedMediaCandidates', 'parsePlayerPage', 'listValue', 'clearLocal'].forEach(function (k) {
         assert.strictEqual(typeof core[k], 'function', '内核缺少 ' + k);
     });
 });
@@ -314,11 +314,28 @@ test('parsePlayerPage 兼容 data-hash 与裸 m3u8', function () {
     assert.strictEqual(core.parsePlayerPage('<script>var src="https:\\/\\/x.com\\/a.m3u8";</script>'), 'https://x.com/a.m3u8');
 });
 
-test('真实打包脚本 fixture：packedMedia 能解出 FST 的 hls 线路', function () {
+test('真实打包脚本 fixture：packedMedia 优先 .m3u8（FST 的 hls3 是 master.txt，Hiker 不认）', function () {
+    var candidates = core.packedMediaCandidates(FIXTURE_PACKED);
+    assert.ok(candidates.length >= 2, '应收集到 hls2/hls3 两个候选: ' + candidates.length);
+    assert.ok(candidates.some(function (u) { return /\.txt/.test(u); }), '候选应含 .txt 索引');
+    assert.ok(candidates.some(function (u) { return /\.m3u8/.test(u); }), '候选应含 .m3u8');
     var url = core.packedMedia(FIXTURE_PACKED);
-    assert.ok(/^https?:\/\//.test(url), '未解出线路: ' + url);
-    assert.ok(/\.(m3u8|txt)/.test(url), '不是 hls 线路: ' + url);
+    assert.ok(/\.m3u8(\?|#|$)/i.test(url), '未优先选 .m3u8: ' + url);
     assert.strictEqual(core.extractMedia(FIXTURE_PACKED), url, 'extractMedia 未回退到打包脚本');
+});
+
+test('resolveServer：响应 url 仍在中转域时弃用，改用 redirectUrl 取真实落点', function () {
+    var old = global.fetchPC;
+    var relay = 'https://lk1.supremejav.com/supjav.php?c=abc';
+    global.fetchPC = function (url, opts) {
+        if (opts && opts.redirect === false) return JSON.stringify({ body: '', headers: { Location: ['https://fc2stream.tv/e/xyz'] }, statusCode: 302 });
+        return JSON.stringify({ body: '<html><body>no media here</body></html>', headers: {}, statusCode: 200, url: relay });
+    };
+    try {
+        var r = core.resolveServer({ name: 'FST', token: 'abc' });
+        assert.strictEqual(r.media, '', '不该解出直链');
+        assert.strictEqual(r.pageUrl, 'https://fc2stream.tv/e/xyz', '中转域 url 未被弃用: ' + r.pageUrl);
+    } finally { global.fetchPC = old; }
 });
 
 test('resolveServer：直链线路返回 media，非直链线路回退到第三方页面地址', function () {
@@ -442,7 +459,7 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
         assert.strictEqual(lit, '?v=' + moduleVersion, '?v= 字面量应统一为基线，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=17') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/supjav_plus/supjav_plus_core.js?v=18') >= 0, '未引用内核');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

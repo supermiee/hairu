@@ -11,7 +11,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '17',
+        version: '18',
         source: 'https://supjav.com',
         /* 中文站点（qTranslate 语言子目录），标题/分类/标签均为简体中文 */
         localePath: '/zh',
@@ -374,21 +374,30 @@
         for (var i = 0; i < count; i++) map[toBase(i)] = keys[i] || toBase(i);
         return packed.replace(/\b(\w+)\b/g, function (all, key) { return map.hasOwnProperty(key) ? map[key] : key; });
     }
-    function packedMedia(html) {
+    /* 收集打包脚本里所有 hls/file 直链（FC2 的 hls3 是 master.txt，hls2/hls4 才是 .m3u8） */
+    function packedMediaCandidates(html) {
         var scripts = String(html || '').match(/<script\b[^>]*>[\s\S]*?<\/script>/ig) || [];
+        var out = [], seen = {};
+        function push(url) { url = String(url || '').replace(/\\\//g, '/'); if (url && !seen[url]) { seen[url] = 1; out.push(url); } }
         for (var i = 0; i < scripts.length; i++) {
             if (scripts[i].indexOf('eval(function') < 0) continue;
             var unpacked = unpackPacker(scripts[i]);
             if (!unpacked) continue;
             var links = /links\s*=\s*(\{[\s\S]{0,2000}?\})/i.exec(unpacked);
             if (links) {
-                var hls = /["']hls[0-9]?["']\s*:\s*["']([^"']+\.(?:m3u8|txt)[^"']*)["']/i.exec(links[1]);
-                if (hls) return hls[1].replace(/\\\//g, '/');
+                var re = /["']hls[0-9]?["']\s*:\s*["']([^"']+\.(?:m3u8|txt)[^"']*)["']/ig, match;
+                while ((match = re.exec(links[1]))) push(match[1]);
             }
             var file = /["']?file["']?\s*[:=]\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i.exec(unpacked);
-            if (file) return file[1].replace(/\\\//g, '/');
+            if (file) push(file[1]);
         }
-        return '';
+        return out;
+    }
+    /* 优先返回 .m3u8：Hiker 以 URL 是否含 .m3u8 判定格式，.txt 索引会被当成普通文件无法播放 */
+    function packedMedia(html) {
+        var candidates = packedMediaCandidates(html);
+        for (var i = 0; i < candidates.length; i++) if (/\.m3u8(\?|#|$)/i.test(candidates[i])) return candidates[i];
+        return candidates.length ? candidates[0] : '';
     }
     /* 从一个播放页 HTML 里尽最大努力提取直链媒体（m3u8/mp4） */
     function extractMedia(html) {
@@ -406,12 +415,15 @@
         if (!server.token) return { name: server.name || '', media: '', pageUrl: '', cUrl: '' };
         var cUrl = CONFIG.playerHost + '/supjav.php?c=' + reverse(server.token);
         var page = requestExternal(cUrl, { referer: CONFIG.playerHost + '/' });
-        var pageUrl = page.finalUrl || '';
+        var resolvedUrl = page.finalUrl || '';
+        /* 若返回的最终 URL 仍在中转域，说明拿到的可能是请求地址而非 302 落点，弃用改走 redirectUrl */
+        if (resolvedUrl && origin(resolvedUrl) === CONFIG.playerHost) resolvedUrl = '';
+        var pageUrl = resolvedUrl;
         if (page.ok) {
             var media = extractMedia(page.html);
             if (media) return { name: server.name || '线路', media: media, pageUrl: pageUrl, cUrl: cUrl };
         }
-        /* 响应没有最终 URL（旧版内核不返回 url 字段）时才补发一次 redirect:false 取 Location */
+        /* 响应没有可用的最终 URL（旧版内核不返回 url 字段，或未跳出中转域）时才补发 redirect:false 取 Location */
         if (!pageUrl) pageUrl = redirectUrl(cUrl, { referer: CONFIG.playerHost + '/' }) || '';
         return { name: server.name || '线路', media: '', pageUrl: pageUrl || cUrl, cUrl: cUrl };
     }
@@ -472,7 +484,7 @@
         parseCards: parseCards, parseHomeSections: parseHomeSections, parseDirectory: parseDirectory,
         parseCast: parseCast, parseMaker: parseMaker, parseTags: parseTags, parseTotal: parseTotal, getList: getList,
         parseDetail: parseDetail, parsePlayerPage: parsePlayerPage, playerServers: playerServers,
-        unpackPacker: unpackPacker, packedMedia: packedMedia, extractMedia: extractMedia,
+        unpackPacker: unpackPacker, packedMediaCandidates: packedMediaCandidates, packedMedia: packedMedia, extractMedia: extractMedia,
         redirectUrl: redirectUrl, resolveServer: resolveServer, resolveBest: resolveBest, resolveMedia: resolveMedia,
         playerHeaders: playerHeaders,
         isFavorite: isFavorite, toggleFavorite: toggleFavorite, addHistory: addHistory, addSearch: addSearch,

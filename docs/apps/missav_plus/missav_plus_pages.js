@@ -4,10 +4,10 @@
  * 设计参照 missav.ws 首页分区：最近更新 / 新作上市 / 中文字幕；文案用简体（站点为简体）。
  */
 (function () {
-    var MODULE_VERSION = '17';
+    var MODULE_VERSION = '18';
     var PUBLISH_BASE = 'https://supermiee.github.io/hairu/';
     var PAGES_URL = PUBLISH_BASE + 'apps/missav_plus/missav_plus_pages.js?v=' + MODULE_VERSION;
-    var CORE_URL = PUBLISH_BASE + 'apps/missav_plus/missav_plus_core.js?v=17';
+    var CORE_URL = PUBLISH_BASE + 'apps/missav_plus/missav_plus_core.js?v=18';
 
     var ACCENT = '#E91E63';
     var SITE = 'https://missav.ws';
@@ -69,8 +69,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=17').renderList(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=17').renderList(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=18').renderList(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=18').renderList(payload); }
         }, params);
     }
     function routeList(url, title, listKind, selectedSort) {
@@ -81,8 +81,8 @@
     }
     function pageRoute(name, params, flags) {
         return $('hiker://empty' + (flags || '')).rule(function (payload) {
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=17').renderRouter(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=17').renderRouter(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=18').renderRouter(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=18').renderRouter(payload); }
         }, { name: name, params: params || {} });
     }
     function directoryRoute(pageSource, params) {
@@ -90,8 +90,8 @@
             var source = String(MY_URL || '').split('#')[1] || payload.url;
             source = String(source).split('@rule=')[0];
             payload.url = source;
-            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=17').renderDirectory(payload); }
-            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=17').renderDirectory(payload); }
+            try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=18').renderDirectory(payload); }
+            catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_pages.js?v=18').renderDirectory(payload); }
         }, params);
     }
     /* 类型目录站点只有一页；女优目录是 ?page=N，需要可翻页的 pageSource */
@@ -453,8 +453,8 @@
     function favoriteToggle(item) {
         return $('hiker://empty').lazyRule(function (payload) {
             var app;
-            try { app = requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17'); }
-            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17'); }
+            try { app = requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18'); }
+            catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18'); }
             var id = 'fav:' + payload.url;
             var added = app.toggleFavorite(payload);
             var toast = 'toast://' + (added ? '已收藏' : '已取消收藏');
@@ -498,8 +498,8 @@
                         content: '将清除缓存、收藏与历史等本地数据，确定继续？',
                         confirm: $.toString(function () {
                             var app;
-                            try { app = requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17'); }
-                            catch (e) { app = $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17'); }
+                            try { app = requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18'); }
+                            catch (e) { app = $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18'); }
                             app.clearLocal();
                             try { refreshPage(false); } catch (ignoreRefresh) {}
                             return 'toast://已清除';
@@ -508,7 +508,7 @@
                     });
                     return 'hiker://empty';
                 }
-                try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17').clearLocal(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18').clearLocal(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18').clearLocal(); }
                 refreshPage(false);
                 return 'toast://已清除';
             }), col_type: 'text_center_1' }
@@ -524,7 +524,7 @@
         for (var i = 0; i < options.length; i++) {
             result.push({ title: (selected === options[i][0] ? '✓ ' : '') + options[i][1], url: $('hiker://empty#noLoading#').lazyRule(function (value) {
                 var app;
-                try { app = requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17'); } catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17'); }
+                try { app = requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18'); } catch (ignore) { app = $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18'); }
                 app.setPlayQuality(value);
                 refreshPage(false);
                 return 'toast://已设置';
@@ -543,7 +543,7 @@
             { title: '打开验证网页', url: source, desc: 'float&&screen-150', col_type: 'x5_webview_single', extra: { ua: app.config.mobileUa, referer: source, canBack: true } },
             { title: '第二步：验证成功后，点此返回并刷新', url: $('hiker://empty#noLoading#').lazyRule(function () {
                 try { putVar('missav.webviewMode', '1'); } catch (ignoreFlag) {}
-                try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=17').clearPageCache(); }
+                try { requirejs('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18').clearPageCache(); } catch (e) { $.require('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=18').clearPageCache(); }
                 back(true);
                 return 'toast://已记录验证状态，请刷新';
             }), col_type: 'scroll_button', extra: { backgroundColor: ACCENT } },

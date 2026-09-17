@@ -16,7 +16,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '17',
+        version: '18',
         source: 'https://www.av01.media',
         localePath: '/cn',
         lang: 'cn',
