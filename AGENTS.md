@@ -2,14 +2,13 @@
 
 ## What this repo is
 
-Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, served by GitHub Pages. No build system, no package.json, no CI — only `docs/`, `test/`, `AGENTS.md`.
+Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, served by GitHub Pages. No build system, no package.json, no CI — only `docs/`, `test/`, `tools/`, `AGENTS.md`, `README.md`.
 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
-- Ported apps (4 total, each a self-contained single module — core + pages in its own folder): `jable_redesign` — **Jable** (`jable_redesign_core.js` + `jable_redesign_pages.js`), `missav_plus` — **MissAV** (`missav_plus_core.js` + `missav_plus_pages.js`), `supjav` — **SupJav**, `av01` — **AV01**. The historical `jable`/`missav` originals (and the shared-core arrangement where the `+` UIs reused them) were removed 2026-09; there is no original/`+` split any more and no backward-compatibility burden — **any core change just bumps that app's pages + core `?v=` together**.
-- **SupJav** (`docs/apps/supjav/supjav_core.js` + `supjav_pages.js`), v10 UI style, Simplified strings.
-- New site: `av01` — **AV01** (`docs/apps/av01/av01_core.js` + `av01_pages.js`), single-module app, v10 UI style, Simplified strings. Unlike the others it is a **React SPA** whose HTML is an empty shell, so everything is parsed from its REST JSON API (`/api/v1/...`). See "AV01 notes".
+- Apps (4 total, each a self-contained single module — `<app>_core.js` + `<app>_pages.js` in its own folder, all in the v10 UI style): `jable_redesign` — **Jable**, `missav_plus` — **MissAV**, `supjav` — **SupJav**, `av01` — **AV01**. The folder names keep the historical `_redesign`/`_plus` suffixes; the subscription site names have no `+`. The original `jable`/`missav` apps (and the shared-core arrangement where the redesigned UIs reused them) were removed 2026-09 — there is no original/`+` split and no backward-compatibility burden any more.
+- **AV01 is a React SPA**: its HTML is a ~4 KB empty shell, so its core parses a REST JSON API (`/api/v1/...`) instead of HTML. See "AV01 notes".
 - Tests (one file per app): `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js`, `node test/av01.test.js`.
 - Versioning is repo-wide and unified: one baseline number for all 4 apps, used by the subscription `version`, every `MODULE_VERSION`, every `?v=` (pages + core) and every core `CONFIG.version`. Bump all four together (see "Critical: version bump").
 
@@ -29,14 +28,14 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 ## Runtime environment (Hiker embedded JS engine)
 
 - Code is kept **ES5** (`var`, no arrow/template/let) by deliberate conservative choice; the demo samples do use ES6, but stay ES5 here.
-- The engine is **Mozilla Rhino 1.7.13** run in ES6 mode (`JSEngine.java` does `rhino.setLanguageVersion(200)` = `Context.VERSION_ES6`; see `developer-reference/hikerView/app/build.gradle:211`). Rhino's ES6 is **partial**: arrow functions, `let`/`const`, destructuring, generators, `Symbol`, `Map`/`Set` work — **template literals (backticks), `Promise`, and `Proxy` do not**. So ES5 is not a hard requirement, but anything beyond that subset fails at runtime. Verify new syntax on-device (a `try/catch` probe rule) rather than trusting this clone, which may differ from the shipped APK.
+- The engine is **Mozilla Rhino 1.7.13** run in ES6 mode (`JSEngine.java:350` does `rhino.setLanguageVersion(200)` = `Context.VERSION_ES6`; Rhino 1.7.13 itself is declared at `developer-reference/hikerView/app/build.gradle:211`). Rhino's ES6 is **partial**: arrow functions, `let`/`const`, destructuring, generators, `Symbol`, `Map`/`Set` work — **template literals (backticks), `Promise`, and `Proxy` do not**. So ES5 is not a hard requirement, but anything beyond that subset fails at runtime. Verify new syntax on-device (a `try/catch` probe rule) rather than trusting this clone, which may differ from the shipped APK.
 - File shape: IIFE, export at bottom via `module.exports = exported;` and `$.exports = exported;`.
 - Rule callbacks (`$().rule` / `.lazyRule`) run in an **isolated scope**: outer closures are invisible. Re-load the module inside the callback with the full HTTPS URL + `?v=`, and pass data through the params argument (`$('hiker://empty').rule(fn, params)` → `fn(params)`).
 - `requirejs` is **not always exposed** in rule callbacks. Always use `try { requirejs(url) } catch { $.require(url) }` with the **same remote URL** — never fall back to a local `hiker://files/rules/...` path (it usually doesn't exist and blanks the page). Wrap render bodies in try/catch and show the error via `renderError()` so failures aren't silent.
 - In-app globals (absent in Node): `$` (+`$.require`/`$.toString`/`$.exports`), `storage0`, `getMyVar`/`putMyVar`, `getVar`/`putVar`, `fetchPC`, `fetchCodeByWebView`, `pdfa`/`pdfh`, `MY_URL`/`MY_PAGE`, `setResult`/`setHomeResult`, `setPageTitle`/`setPagePicUrl`, `refreshPage`, `back`, `getParam`.
 - UI strings are Chinese (mostly Traditional for Jable, matching the site).
 
-## Pagination (both apps)
+## Pagination (all apps)
 
 - Hiker **appends** the next page's result to the existing list (infinite scroll), it does not replace. So `renderList` must emit non-card items (title/heading, sort chips) **only on page 1** (`MY_PAGE <= 1`) or they repeat.
 - Time-ordered feeds (`/new`, `/release`) shift between page requests, so a card can reappear at the next page boundary. `dedupeAcrossPages()` keeps a per-route seen-URL set in rule vars (reset on page 1) and filters repeats. Scope key is the route title.
@@ -44,14 +43,14 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 
 ## Useful APIs (verified vs help_js.md + JSEngine.java, 2026-09)
 
-- **局部刷新**：`updateItem(id, {title, extra:{id}})` updates one card in place via `extra.id` (id must be globally unique across pages; we use `'fav:'+url`). Siblings: `deleteItem` / `deleteItemByCls` / `addItemAfter` / `addItemBefore` / `findItem` / `findItemsByCls` (help_js.md:864-922; JSEngine.java:1167). The Jable/MissAV favorite toggles use this with a `refreshPage(false)` fallback (`typeof updateItem` guard).
+- **局部刷新**：`updateItem(id, {title, extra:{id}})` updates one card in place via `extra.id` (id must be globally unique across pages; we use `'fav:'+url`). Siblings: `deleteItem` / `deleteItemByCls` / `addItemAfter` / `addItemBefore` / `findItem` / `findItemsByCls` (help_js.md:864-922; JSEngine.java:1167). All four apps' favorite toggles use this with a `refreshPage(false)` fallback (`typeof updateItem` guard).
 - **caveat**: pages containing both an `input` and `flex_button`/`scroll_button` must not use dynamic refresh on the flex/scroll items — it global-refreshes and blurs the input (help_js.md:924-926). Detail pages are safe (no input).
 - **confirm** 二次弹窗：`confirm({title, content, confirm: $.toString(fn), cancel: $.toString(fn)})` — the callback strings are isolated like rule callbacks; require the core inside them. Jable「清除緩存與本地數據」uses it.
 - **showLoading/hideLoading**: NOT installed yet; if added, it belongs in the per-app core's webview branch (e.g. `jable_redesign_core.js`) (help_js.md:485-491).
 - **Page tags**: settings-family routes append `#noRecordHistory##noRefresh#` (no history record, no pull-refresh) — pattern in `jable_redesign_pages.js pageRoute`. `#autoCache#` caches only page 1 for instant reopen — only for low-frequency read-only pages.
-- `fetchCodeByWebView` already runs with `checkJs` (extract only when a marker selector exists) in both cores.
+- `fetchCodeByWebView` already runs with `checkJs` (extract only when a marker selector exists) in all four cores.
 - **Do not exist** (verified docs+source+two community repos): `updateAll`, `refreshx://`, `lazyConvert`, `setKey` (JS API). Real names: `refreshX5WebView(url)`, `setItem/getItem/clearItem`.
-- Full JS API surface = the 133 public methods of `JSEngine.java`; consult it before assuming an API is missing.
+- Full JS API surface = the **127** public methods of `JSEngine.java` (re-counted 2026-09); consult it before assuming an API is missing. Note the cookie helper's real name is `fetchCookie(url, options)`.
 
 ## Jable notes (hard-earned)
 
@@ -62,11 +61,11 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 - Jable sits behind Cloudflare: core has `isHardBlock` short-circuit + `fetchCodeByWebView` fallback + `jable.webviewMode` flag set by「验证并同步」. `isUsableHtml` lets a page-specific `marker` win over generic CF keywords.
 - Playback item is a JSON payload `{urls,names,headers}`; set `extra.id = detail.url` so progress is remembered.
 
-## MissAV notes (hard-earned)
+## MissAV site notes (hard-earned)
 
 - New Alpine.js frontend on `missav.ws`; all paths are locale-prefixed (`/cn/...`). The `dmNN` segment some links carry (`/dm539/cn/new`) is server-assigned and rotates — request the plain path (`/cn/new`) and let the server redirect.
 - **List/search pagination is a query param**, not a path: `?page=N`. `pagedSource()` uses `page=fypage` + `[firstPage=<url>]`. Search URL is `/cn/search/<encoded keyword>`.
-- Card parse: `.thumbnail` blocks; title in `div.truncate > a`; cover `fourhoi.com/<id>/cover-t.jpg`; detail hrefs carry a `#fragment` that must be stripped (`url.split('#')[0]`). Card duration is split across `<span x-text>` nodes — `cardDuration()` reassembles it.
+- Card parse: `.thumbnail` blocks; title in `div.truncate > a`; cover `fourhoi.com/<id>/cover-t.jpg`; detail hrefs carry a `#fragment` that must be stripped (`url.split('#')[0]`). Card duration markup changed (see the dedicated bullet further down) — `cardDuration()` handles both the current plain span and the legacy `<span x-text>` triple.
 - Detail: metadata uses `<span>番号:</span> … </div>` rows, parsed by `field`/`fieldLinks` (`番号/发行日期/女优/类型/系列/发行商/导演/标籤`); `og:title`/`og:image`/`og:video:*` also present.
 - Playback: the m3u8 lives inside a Dean-Edwards packed `<script>` (`eval(function(p,a,c,k,e,d)`) — `unpackPacker` + `parseQualities`. Decoded URLs are `\/`-escaped and often end with a stray trailing `\`, so `parseQualities` normalizes slashes and strips trailing backslashes (a leftover `\` makes the player fail silently). Multiple qualities become multiple player lines. Surrit m3u8 needs no special headers.
 - Metadata links carry a rotating `/dmNN/` segment — `stripDm()` removes it so saved/derived URLs stay stable.
@@ -78,10 +77,10 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 - **Playback**: the m3u8 lives in a Dean-Edwards packer whose payload is itself base-N encoded (`eval(function(p,a,c,k,e,d){…}('e=\'8://7.6/5-4-3-2-1/d.0\';…',15,15,'m3u8|…'.split('|'),0,{}))`). The regex-based `unpackPacker()` + `parseQualities()` decode it; a real fragment is stored at `test/fixtures/missav_packed_script.html` so the test does not drift from reality. `directUrls` in the page points at tsyndicate API URLs (not m3u8) — don't use it for playback.
 - **详情页相似推荐只在前端**（已验证 3 个详情页）：右侧/底部 watch-next 列表由 Alpine + Recombee（`recommendItemsToItem`，scenario `internal-desktop-watch-next*`）异步拉取，静态 HTML 里只有 2 个 `<template x-for>` 占位壳（`:href`/`:data-src`/`item.*` 表达式，无真实 href/标题）。`parseCards()` 的 `/\/cn\//` 过滤会把它们滤掉，故 `detail.recommendations` 恒为空、详情页「猜你喜欢」区块不会渲染（按用户决定保留不动，等站点改为服务端渲染再接）。要自己造相似推荐时，可用的服务端渲染数据源是 `/cn/actresses/<slug>`、`/cn/genres/<slug>`、`/cn/tags/<slug>` 列表页。
 
-## MissAV notes
+## MissAV app notes
 
 - `docs/apps/missav_plus/missav_plus_pages.js` (see its `MODULE_VERSION`) + `missav_plus_core.js` (same folder, same unified `?v=` as the pages). UI mirrors Jable v10: 7 top tabs (首页/最近更新/新作上市/热门/女优/类型/我的), 玫红 `#E91E63` selection, home sections with `pic_1` first card + `movie_2` two-column, `text_1` clickable section titles with `更多 ›`, detail hero `pic_1_full` → meta chips → play → favorite/原网页 → 演员/类型/系列/发行商/导演/标签 chips → 猜你喜欢. Strings are Simplified (site is Simplified).
-- Core additions made for it (backward compatible, both apps' tests cover them): `getList(url, marker, limit)`, `parseTotal`, `listValue`/`setValue`, `addSearch`, `clearLocal`, and a `parseDetail` that accepts a `{html, url}` page object. `getList` treats `limit <= 0` as "all" (the raw `parseCards` slices at 0).
+- Core shape: `getList(url, marker, limit)`, `parseTotal`, `listValue`/`setValue`, `addSearch`, `clearLocal`, and a `parseDetail` that accepts both `(html, url)` and a `{html, url}` page object. `getList` treats `limit <= 0` as "all" (the raw `parseCards` slices at 0).
 - State keys are prefixed `msp.`; favorites/history/search live in the same core.
 - Preview: `node tools/preview_missav.js` → `docs/dev/preview_missav.html` (home/hot/actress/mine tabs + detail).
 
@@ -124,7 +123,7 @@ Baseline number rule: **never reset to a number that was ever published** (a cli
 - Pagination is API page numbers, not the site's paths: list/search routes use `page=fypage` in the Hiker page source, and `search_url` is `https://www.av01.media/cn/search?q=**&page=fypage`. `renderList` resolves the page from the page source, else from the passed URL, else `MY_PAGE`.
 - Cards: cover `800.webp` (`400.webp` for small), duration formatted `20h26m`/`48m12s`, views as `3.2万`, date from `published_time`. Card URL is the canonical site URL `…/cn/video/{id}/{slug}` so 原网页/收藏 stay valid; `idFrom(url,'video')` recovers the id.
 - **Playback quality cap (2026-09, settled)**: AV01's ABR master we hand the player is built with `CONFIG.limits.abrMaxHeight = 720`, so `buildMaster(text,id,token,maxHeight)` drops variants + I-FRAME entries above the cap (the site's own `Lce()` does the same kind of cap). Reason: measured on the user's phone, the link transfers ~400–560 KB/s of real payload but has **1.5–1.8 s of per-request latency**; AV01 declares 360P 0.39 / 720P 1.38 / 1080P 3.14 Mbps, so 1080P (needs 392 KB/s sustained) is out of reach and letting ABR probe it makes playback thrash (the user saw the speed meter oscillate 0↔several MB/s). 720P is the top of the automatic range; 1080P stays as a manual line inside the player and as a per-quality payload line. If the cap would drop every variant (a 1080P-only video) `resolveMedia` falls back to an uncapped master so the player never gets an empty playlist. `synthMaster` honours the same cap.
-- The stream is CMAF fMP4 (`.m4s` + `#EXT-X-MAP`, 0.7–4.4 MB segments, `access_token` query on every segment URL); Jable/MissAV/SupJav are MPEG-TS with clean URLs. There is **no TS fallback** (`master-ts.m3u8` hangs/400, the CDN's `.ts` 504s, `/v2/<storage>/video.mp4` 404s). MX Player cannot play the stream (FFmpeg rejects `.m4s`/`#EXT-X-MAP`) and Hiker's X5 webview cannot run hls.js (no MSE), so neither is usable as a comparison or fallback.
+- The AV01 stream is **CMAF fMP4** (`.m4s` + `#EXT-X-MAP`, 0.7–4.4 MB segments, `access_token` query on every segment URL) — verified. The other three apps' segment containers were **not** inspected; their segment URLs are short and clean, and the fMP4-vs-MPEG-TS difference is what we *suspect* made AV01 less player-friendly (a hypothesis, not a verified fact). There is **no TS fallback** for AV01 (`master-ts.m3u8` hangs/400, the CDN's `.ts` 504s, `/v2/<storage>/video.mp4` 404s). MX Player cannot play the stream (FFmpeg rejects `.m4s`/`#EXT-X-MAP`) and Hiker's X5 webview cannot run hls.js (no MSE), so neither is usable as a comparison or fallback.
 - Temporary on-device diagnostics (`🩺 播放自检` / `📋 复制直连播放地址` / `🌐 用原站播放器播放` / `🧪 固定清晰度自测`, plus `core.diagnose/remotePlayUrl/qualityUrl`) were used to settle the above and have been **removed for the release**; `test/av01.test.js` guards against them coming back.
 - State keys are prefixed `av01.`. Preview: `node tools/preview_av01.js` → `docs/dev/preview_av01.html`. Fixtures: `test/fixtures/av01_{home,latest,hottest,detail,similars,search,actresses,makers,tags,actress_videos,geo}.json` + `av01_master.m3u8` (real API responses; descriptions/translations trimmed to keep them small).
 
