@@ -1,5 +1,5 @@
 /*
- * MissAV+ 预览工具：node tools/preview_missav.js
+ * MissAV 预览工具：node tools/preview_missav.js
  * 在 Node 桩里跑 missav_plus_core + missav_plus_pages，把 setResult/setHomeResult 的卡片
  * 渲成近似海阔布局的 HTML（docs/dev/preview_missav.html），浏览器打开即可目检 UI。
  */
@@ -164,7 +164,7 @@ pages.renderRouter({ name: 'renderDetail', params: { url: 'https://missav.ws/cn/
 var detail = JSON.parse(JSON.stringify(page));
 store['msp.tab'] = '0';
 
-var html = '<!doctype html><meta charset="utf-8"><title>MissAV+ 预览</title><style>' +
+var html = '<!doctype html><meta charset="utf-8"><title>MissAV 预览</title><style>' +
     'body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei";margin:0;background:#151515;color:#ddd}' +
     '.screen{max-width:420px;margin:10px auto;padding:12px;background:#1b1b1b;border-radius:12px}' +
     '.bar{font-size:12px;color:#888;border-bottom:1px solid #333;margin-bottom:8px;padding-bottom:4px}' +

@@ -1,8 +1,8 @@
 /*
- * Jable+（重构版）冒烟测试。无依赖：node test/jable_redesign.test.js
+ * Jable 冒烟测试。无依赖：node test/jable_redesign.test.js
  * 桩掉海阔全局 API，跑真实渲染路径，并校验：
- *  - 订阅 JSON 的 Jable+ 版本与 ?v= 一致
- *  - 数据内核为同目录 jable_redesign_core.js（独立版本，?v=1）
+ *  - 订阅 JSON 的 Jable 版本与 ?v= 一致
+ *  - 数据内核为同目录 jable_redesign_core.js（独立版本，?v=2）
  *  - 女優路由走 renderModels，而不是影片 renderList
  */
 'use strict';
@@ -186,20 +186,20 @@ test('local 列表页可渲染（收藏/历史共用）', function () {
     assert.ok(titles(lastResult).indexOf('ABC-001') >= 0, '收藏页缺卡片');
 });
 
-test('订阅 JSON 版本一致，内核为同目录 jable_redesign_core.js?v=1', function () {
+test('订阅 JSON 版本一致，内核为同目录 jable_redesign_core.js?v=2', function () {
     var file = path.join(ROOT, 'docs', 'subscription.json');
     var entries = JSON.parse(fs.readFileSync(file, 'utf8'));
-    var entry = entries.filter(function (e) { return e.title === 'Jable+'; })[0];
-    assert.ok(entry, '订阅缺少 Jable+');
+    var entry = entries.filter(function (e) { return e.title === 'Jable'; })[0];
+    assert.ok(entry, '订阅缺少 Jable');
     var source = fs.readFileSync(REDESIGN_PATH, 'utf8');
     var moduleVersion = /MODULE_VERSION\s*=\s*'(\d+)'/.exec(source)[1];
     assert.strictEqual(String(entry.version), moduleVersion, 'version 与 MODULE_VERSION 不一致');
-    var coreUrl = 'https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_core.js?v=1';
+    var coreUrl = 'https://supermiee.github.io/hairu/apps/jable_redesign/jable_redesign_core.js?v=2';
     assert.ok(entry.find_rule.indexOf('/apps/jable_redesign/') >= 0, 'find_rule 未指向重构版');
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     /* 所有 ?v= 必须是 module 版本或内核的 v=1 */
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=1', '内核引用应为 ?v=1，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=2', '内核引用应为 ?v=2，出现 ' + lit);
     });
     assert.ok(source.indexOf(coreUrl) >= 0, '未引用同目录内核: ' + coreUrl);
 });

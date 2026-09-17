@@ -1,8 +1,8 @@
 /*
- * MissAV+（重构版）冒烟测试。无依赖：node test/missav_plus.test.js
+ * MissAV 冒烟测试。无依赖：node test/missav_plus.test.js
  * 桩掉海阔全局 API，跑真实渲染路径，并校验：
- *  - 订阅 JSON 的 MissAV+ 版本与 ?v= 一致
- *  - 数据内核为同目录 missav_plus_core.js（独立版本，?v=1）
+ *  - 订阅 JSON 的 MissAV 版本与 ?v= 一致
+ *  - 数据内核为同目录 missav_plus_core.js（独立版本，?v=2）
  *  - 搜索翻页走 query 形式 page=fypage，与站点一致
  *  - 详情多清晰度播放 payload + 进度 id
  */
@@ -314,27 +314,30 @@ test('local 列表页可渲染（收藏/历史共用）', function () {
     assert.ok(titles(lastResult).indexOf('SNOS-313') >= 0, '收藏页缺卡片');
 });
 
-test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=1', function () {
+test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=2', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
-    var entry = entries.filter(function (e) { return e.title === 'MissAV+'; })[0];
-    assert.ok(entry, '订阅缺少 MissAV+');
+    var entry = entries.filter(function (e) { return e.title === 'MissAV'; })[0];
+    assert.ok(entry, '订阅缺少 MissAV');
     var source = fs.readFileSync(PAGES_PATH, 'utf8');
     var moduleVersion = /MODULE_VERSION\s*=\s*'(\d+)'/.exec(source)[1];
     assert.strictEqual(String(entry.version), moduleVersion, 'version 与 MODULE_VERSION 不一致');
     assert.ok(entry.find_rule.indexOf('/apps/missav_plus/') >= 0, 'find_rule 未指向重构版');
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=1', '内核引用应为 ?v=1，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=2', '内核引用应为 ?v=2，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=1') >= 0, '未引用同目录内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=2') >= 0, '未引用同目录内核');
 });
 
 test('订阅里只保留最终 4 个站点，原版 Jable/MissAV 已下线', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
     var titles = entries.map(function (e) { return e.title; }).sort();
-    assert.deepStrictEqual(titles, ['AV01', 'Jable+', 'MissAV+', 'SupJav'], '订阅条目不对: ' + titles);
-    ['Jable', 'MissAV'].forEach(function (dead) {
-        assert.ok(!titles.some(function (t) { return t === dead; }), '仍残留订阅条目: ' + dead);
+    assert.deepStrictEqual(titles, ['AV01', 'Jable', 'MissAV', 'SupJav'], '订阅条目不对: ' + titles);
+    /* 所有条目必须指向仍存在的 4 个 app 目录（原版 apps/jable、apps/missav 不允许再出现） */
+    entries.forEach(function (e) {
+        var m = /\/apps\/([a-z0-9_]+)\//.exec(e.find_rule);
+        assert.ok(m, 'find_rule 未指向 apps/<app>/: ' + e.title);
+        assert.ok(['jable_redesign', 'missav_plus', 'supjav', 'av01'].indexOf(m[1]) >= 0, '订阅指向了已下线目录: ' + m[1]);
     });
     ['jable', 'missav'].forEach(function (dead) {
         assert.ok(!fs.existsSync(path.join(ROOT, 'docs', 'apps', dead)), '仍残留目录 docs/apps/' + dead);

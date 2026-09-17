@@ -1,5 +1,5 @@
 /*
- * Jable+ 预览工具：node tools/preview.js
+ * Jable 预览工具：node tools/preview_jable.js
  * 在 Node 桩里跑 jable_redesign_core + jable_redesign_pages，把 setResult/setHomeResult 的卡片
  * 渲成近似海阔布局的 HTML（docs/dev/preview_jable.html），浏览器打开即可目检 UI。
  */
@@ -166,7 +166,7 @@ store['jbp.tab'] = '0';
 pages.renderRouter({ name: 'renderDetail', params: { url: 'https://jable.tv/videos/abc-001/', title: 'x' } });
 var detail = page;
 
-var html = '<!doctype html><meta charset="utf-8"><title>Jable+ 预览</title><style>' +
+var html = '<!doctype html><meta charset="utf-8"><title>Jable 预览</title><style>' +
     'body{font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei";margin:0;background:#151515;color:#ddd}' +
     '.screen{max-width:420px;margin:10px auto;padding:12px;background:#1b1b1b;border-radius:12px}' +
     '.bar{font-size:12px;color:#888;border-bottom:1px solid #333;margin-bottom:8px;padding-bottom:4px}' +

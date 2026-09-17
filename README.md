@@ -10,8 +10,8 @@
 
 | 应用 | 入口 |
 | --- | --- |
-| Jable+ | `docs/apps/jable_redesign/jable_redesign_pages.js` |
-| MissAV+ | `docs/apps/missav_plus/missav_plus_pages.js` |
+| Jable | `docs/apps/jable_redesign/jable_redesign_pages.js` |
+| MissAV | `docs/apps/missav_plus/missav_plus_pages.js` |
 | SupJav | `docs/apps/supjav/supjav_pages.js` |
 | AV01 | `docs/apps/av01/av01_pages.js` |
 

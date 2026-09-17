@@ -1,5 +1,5 @@
 /*
- * Jable+（jable.tv）数据内核，与本目录的 jable_redesign_pages.js 配套（单模块 app）。
+ * Jable（jable.tv）数据内核，与本目录的 jable_redesign_pages.js 配套（单模块 app）。
  * 由 pages 通过完整 HTTPS URL + ?v= 重新 require。
  * 注意：cachePrefix（jable.full.）是历史键名，改掉会丢用户收藏/历史，保持不动。
  */
