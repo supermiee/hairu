@@ -445,9 +445,32 @@ test('订阅 JSON 版本一致，且模块/内核 ?v= 正确', function () {
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     assert.strictEqual(entry.search_url, 'https://www.av01.media/cn/search?q=**&page=fypage', 'search_url 不对: ' + entry.search_url);
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=5', '内核引用应为 ?v=3，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=6', '内核引用应为 ?v=3，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=5') >= 0, '未引用内核');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/av01/av01_core.js?v=6') >= 0, '未引用内核');
+});
+
+test('没有 1080P 的影片：档位只按真实存在的给，且裁到空时不会产出空清单', function () {
+    store = {};
+    /* 合成一份「只有 720P」和一份「只有 1080P」的 master，验证裁剪/回退逻辑 */
+    var only720 = ['#EXTM3U', '#EXT-X-VERSION:3',
+        '#EXT-X-STREAM-INF:BANDWIDTH=1383828,RESOLUTION=1280x720', 'index90-sv2-v1-a1.m3u8'].join('\n');
+    var only1080 = ['#EXTM3U', '#EXT-X-VERSION:3',
+        '#EXT-X-STREAM-INF:BANDWIDTH=3142624,RESOLUTION=1920x1080', 'index90-sv3-v1-a1.m3u8'].join('\n');
+    assert.deepStrictEqual(core.parseVariants(core.buildMaster(only720, 1, 'T', 720)).map(function (v) { return v.height; }), [720]);
+    assert.strictEqual(core.buildMaster(only1080, 1, 'T', 720).indexOf('#EXT-X-STREAM-INF'), -1, '裁到空时应真的为空（由 resolveMedia 回退）');
+
+    var old = global.fetchPC;
+    global.writeFile = function () {};
+    global.getPath = function (p) { return 'file:///tmp/' + p.split('/').pop(); };
+    try {
+        global.fetchPC = function (url, options) { return /manifest\/master\.m3u8/.test(String(url)) ? wrap(only1080) : (global.__orig ? global.__orig(url, options) : fetchPCImpl(url, options)); };
+        var media = core.resolveMedia(219346);
+        assert.ok(media.ok, '解析失败');
+        assert.deepStrictEqual(media.variants.map(function (v) { return v.height; }), [1080], '只有 1080P 的片应保留 1080P');
+        assert.ok(media.local && /RESOLUTION=1920x1080/.test(media.master), '裁空后应回退到不裁剪的 master');
+        assert.deepStrictEqual(media.names.slice(1), ['1080P'], '手动线路应只有 1080P');
+    } finally { global.fetchPC = old; delete global.writeFile; delete global.getPath; }
 });
 
 test('播放自检：resolveMedia / remotePlayUrl / diagnose 的落地数据', function () {

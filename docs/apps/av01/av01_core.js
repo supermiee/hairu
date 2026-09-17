@@ -16,7 +16,7 @@
  */
 (function () {
     var CONFIG = {
-        version: '1.4.0',
+        version: '1.5.0',
         source: 'https://www.av01.media',
         localePath: '/cn',
         lang: 'cn',
@@ -457,6 +457,11 @@
 
         var masterText = master.ok ? buildMaster(master.text, id, accessToken, CONFIG.limits.abrMaxHeight) : '';
         if (!masterText) masterText = synthMaster(variants, id, accessToken, CONFIG.limits.abrMaxHeight);
+        /* 上限裁剪后若一条 variant 都不剩（例如该片只有 1080P），退回到不裁剪，避免空清单 */
+        if (!/#EXT-X-STREAM-INF/i.test(masterText)) {
+            masterText = master.ok ? buildMaster(master.text, id, accessToken, 0) : '';
+            if (!masterText) masterText = synthMaster(variants, id, accessToken, 0);
+        }
         var local = localMaster(id, masterText);
 
         var urls = [], names = [];
