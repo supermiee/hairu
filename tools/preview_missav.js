@@ -1,6 +1,6 @@
 /*
  * MissAV+ 预览工具：node tools/preview_missav.js
- * 在 Node 桩里跑 missav_core + missav_plus_pages，把 setResult/setHomeResult 的卡片
+ * 在 Node 桩里跑 missav_plus_core + missav_plus_pages，把 setResult/setHomeResult 的卡片
  * 渲成近似海阔布局的 HTML（docs/dev/preview_missav.html），浏览器打开即可目检 UI。
  */
 'use strict';
@@ -8,7 +8,7 @@ var fs = require('fs');
 var path = require('path');
 
 var ROOT = path.join(__dirname, '..');
-var CORE = path.join(ROOT, 'docs', 'apps', 'missav', 'missav_core.js');
+var CORE = path.join(ROOT, 'docs', 'apps', 'missav_plus', 'missav_plus_core.js');
 var PAGES = path.join(ROOT, 'docs', 'apps', 'missav_plus', 'missav_plus_pages.js');
 
 var store = {};
@@ -73,9 +73,9 @@ global.$ = function (url) {
         lazyRule: function (cb, params) { return JSON.stringify({ kind: 'lazy', url: url, params: params }); }
     };
 };
-global.$.require = function (p) { return String(p).indexOf('missav_core') >= 0 ? core : pages; };
+global.$.require = function (p) { return String(p).indexOf('missav_plus_core') >= 0 ? core : pages; };
 global.$.toString = function (fn) { return '(' + fn.toString() + ')'; };
-global.requirejs = function (u) { return String(u).indexOf('missav_core') >= 0 ? core : pages; };
+global.requirejs = function (u) { return String(u).indexOf('missav_plus_core') >= 0 ? core : pages; };
 global.fetchPC = function (url) {
     url = String(url);
     if (/snos-313/.test(url)) return JSON.stringify({ body: FIXTURE_DETAIL, statusCode: 200, headers: {} });

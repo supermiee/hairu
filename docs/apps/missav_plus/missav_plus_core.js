@@ -1,4 +1,8 @@
-/* MissAV 完整版公共内核。部署到 hiker://files/rules/missav/ 后由 $.require() 引用。 */
+/*
+ * MissAV+（missav.ws/cn）数据内核，与本目录的 missav_plus_pages.js 配套（单模块 app）。
+ * 由 pages 通过完整 HTTPS URL + ?v= 重新 require。
+ * 注意：cachePrefix（missav.full.）是历史键名，改掉会丢用户收藏/历史，保持不动。
+ */
 (function () {
     var CONFIG = {
         version: '1.1.0',

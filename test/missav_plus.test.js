@@ -2,7 +2,7 @@
  * MissAV+（重构版）冒烟测试。无依赖：node test/missav_plus.test.js
  * 桩掉海阔全局 API，跑真实渲染路径，并校验：
  *  - 订阅 JSON 的 MissAV+ 版本与 ?v= 一致
- *  - 复用原版 core（missav_core.js?v=5）且原版仍引用 v4（互不影响）
+ *  - 数据内核为同目录 missav_plus_core.js（独立版本，?v=1）
  *  - 搜索翻页走 query 形式 page=fypage，与站点一致
  *  - 详情多清晰度播放 payload + 进度 id
  */
@@ -13,7 +13,7 @@ var assert = require('assert');
 
 var ROOT = path.join(__dirname, '..');
 var PAGES_PATH = path.join(ROOT, 'docs', 'apps', 'missav_plus', 'missav_plus_pages.js');
-var CORE_PATH = path.join(ROOT, 'docs', 'apps', 'missav', 'missav_core.js');
+var CORE_PATH = path.join(ROOT, 'docs', 'apps', 'missav_plus', 'missav_plus_core.js');
 
 function freshRequire(file) { delete require.cache[require.resolve(file)]; return require(file); }
 
@@ -95,7 +95,7 @@ function dollar(url) {
     };
 }
 var core = freshRequire(CORE_PATH);
-dollar.require = function (p) { return String(p).indexOf('missav_core') >= 0 ? core : pages; };
+dollar.require = function (p) { return String(p).indexOf('missav_plus_core') >= 0 ? core : pages; };
 dollar.toString = function (fn) { return '(' + fn.toString() + ')'; };
 global.$ = dollar;
 
@@ -314,7 +314,7 @@ test('local 列表页可渲染（收藏/历史共用）', function () {
     assert.ok(titles(lastResult).indexOf('SNOS-313') >= 0, '收藏页缺卡片');
 });
 
-test('订阅 JSON 版本一致，复用 core v5，且原版 MissAV 仍为 v4', function () {
+test('订阅 JSON 版本一致，内核为同目录 missav_plus_core.js?v=1', function () {
     var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
     var entry = entries.filter(function (e) { return e.title === 'MissAV+'; })[0];
     assert.ok(entry, '订阅缺少 MissAV+');
@@ -324,14 +324,22 @@ test('订阅 JSON 版本一致，复用 core v5，且原版 MissAV 仍为 v4', f
     assert.ok(entry.find_rule.indexOf('/apps/missav_plus/') >= 0, 'find_rule 未指向重构版');
     assert.ok(entry.find_rule.indexOf('?v=' + moduleVersion) >= 0, 'find_rule 缺 ?v=');
     (source.match(/\?v=(\d+)/g) || []).forEach(function (lit) {
-        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=5', '内核引用应为 ?v=5，出现 ' + lit);
+        if (lit !== '?v=' + moduleVersion) assert.strictEqual(lit, '?v=1', '内核引用应为 ?v=1，出现 ' + lit);
     });
-    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/missav/missav_core.js?v=5') >= 0, '未复用原版 core');
-    /* 原版 MissAV 未被改动 */
-    var original = entries.filter(function (e) { return e.title === 'MissAV'; })[0];
-    assert.ok(original && String(original.version) === '4', '原版 MissAV 版本被改动');
-    var originalSource = fs.readFileSync(path.join(ROOT, 'docs', 'apps', 'missav', 'missav_pages.js'), 'utf8');
-    assert.ok(originalSource.indexOf("MODULE_VERSION = '4'") >= 0, '原版页面层 MODULE_VERSION 被改动');
+    assert.ok(source.indexOf('https://supermiee.github.io/hairu/apps/missav_plus/missav_plus_core.js?v=1') >= 0, '未引用同目录内核');
+});
+
+test('订阅里只保留最终 4 个站点，原版 Jable/MissAV 已下线', function () {
+    var entries = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'subscription.json'), 'utf8'));
+    var titles = entries.map(function (e) { return e.title; }).sort();
+    assert.deepStrictEqual(titles, ['AV01', 'Jable+', 'MissAV+', 'SupJav'], '订阅条目不对: ' + titles);
+    ['Jable', 'MissAV'].forEach(function (dead) {
+        assert.ok(!titles.some(function (t) { return t === dead; }), '仍残留订阅条目: ' + dead);
+    });
+    ['jable', 'missav'].forEach(function (dead) {
+        assert.ok(!fs.existsSync(path.join(ROOT, 'docs', 'apps', dead)), '仍残留目录 docs/apps/' + dead);
+        assert.ok(!fs.existsSync(path.join(ROOT, 'test', dead + '.test.js')), '仍残留测试 test/' + dead + '.test.js');
+    });
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

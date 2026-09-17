@@ -1,14 +1,14 @@
 /*
  * Jable+ 预览工具：node tools/preview.js
- * 在 Node 桩里跑 jable_core + jable_redesign_pages，把 setResult/setHomeResult 的卡片
- * 渲成近似海阔布局的 HTML（docs/dev/preview.html），浏览器打开即可目检 UI。
+ * 在 Node 桩里跑 jable_redesign_core + jable_redesign_pages，把 setResult/setHomeResult 的卡片
+ * 渲成近似海阔布局的 HTML（docs/dev/preview_jable.html），浏览器打开即可目检 UI。
  */
 'use strict';
 var fs = require('fs');
 var path = require('path');
 
 var ROOT = path.join(__dirname, '..');
-var CORE = path.join(ROOT, 'docs', 'apps', 'jable', 'jable_core.js');
+var CORE = path.join(ROOT, 'docs', 'apps', 'jable_redesign', 'jable_redesign_core.js');
 var PAGES = path.join(ROOT, 'docs', 'apps', 'jable_redesign', 'jable_redesign_pages.js');
 
 var store = {};
@@ -74,9 +74,9 @@ global.$ = function (url) {
         lazyRule: function (cb, params) { return JSON.stringify({ kind: 'lazy', url: url, params: params }); }
     };
 };
-global.$.require = function (p) { return String(p).indexOf('jable_core') >= 0 ? core : pages; };
+global.$.require = function (p) { return String(p).indexOf('jable_redesign_core') >= 0 ? core : pages; };
 global.$.toString = function (fn) { return '(' + fn.toString() + ')'; };
-global.requirejs = function (u) { return String(u).indexOf('jable_core') >= 0 ? core : pages; };
+global.requirejs = function (u) { return String(u).indexOf('jable_redesign_core') >= 0 ? core : pages; };
 global.fetchPC = function (url) {
     url = String(url);
     if (/\/videos\//.test(url)) return JSON.stringify({ body: FIXTURE_DETAIL, statusCode: 200, headers: {} });
@@ -198,8 +198,8 @@ var html = '<!doctype html><meta charset="utf-8"><title>Jable+ 预览</title><st
     block(detail, '详情页');
 
 fs.mkdirSync('/tmp/opencode', { recursive: true });
-var out = path.join(ROOT, 'docs', 'dev', 'preview.html');
+var out = path.join(ROOT, 'docs', 'dev', 'preview_jable.html');
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, html);
 console.log('preview:', home ? home.length + ' home cards, ' + detail.length + ' detail cards' : 'EMPTY');
-console.log('open https://supermiee.github.io/hairu/dev/preview.html after push');
+console.log('open https://supermiee.github.io/hairu/dev/preview_jable.html after push');

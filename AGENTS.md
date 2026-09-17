@@ -7,11 +7,11 @@ Static JavaScript rules ("小程序") for the Hiker (海阔视界) Android app, 
 - `docs/` is the Pages web root (`https://supermiee.github.io/hairu/`, `.nojekyll` present). Pushing to `main` publishes immediately.
 - `docs/subscription.json` — the subscription manifest. **Subscription URL:** `https://supermiee.github.io/hairu/subscription.json`
 - Layout: `docs/apps/<app>/<app>_core.js` (kernel: HTTP + CF handling + parsing + cache) and `docs/apps/<app>/<app>_pages.js` (UI layer; the only entrypoint the subscription loads).
-- Ported apps: `jable`, `missav`, plus `jable_redesign` — **Jable+** and `missav_plus` — **MissAV+**. Both are redesigned UI layers that reuse their original core (`jable_core.js?v=5`, `missav_core.js?v=5`) so cache/verification state is shared with the original. Original Jable/MissAV stay untouched for comparison; **all improvements target the `+` versions only**.
-- New site: `supjav` — **SupJav** (`docs/apps/supjav/supjav_core.js` + `supjav_pages.js`), a single-module app (no original/`+` split) in the v10 UI style, Simplified strings.
+- Ported apps (4 total, each a self-contained single module — core + pages in its own folder): `jable_redesign` — **Jable+** (`jable_redesign_core.js?v=1` + `jable_redesign_pages.js`), `missav_plus` — **MissAV+** (`missav_plus_core.js?v=1` + `missav_plus_pages.js`), `supjav` — **SupJav**, `av01` — **AV01**. The historical `jable`/`missav` originals (and the shared-core arrangement where the `+` UIs reused them) were removed 2026-09; there is no original/`+` split any more and no backward-compatibility burden — **any core change just bumps that app's pages + core `?v=` together**.
+- **SupJav** (`docs/apps/supjav/supjav_core.js` + `supjav_pages.js`), v10 UI style, Simplified strings.
 - New site: `av01` — **AV01** (`docs/apps/av01/av01_core.js` + `av01_pages.js`), single-module app, v10 UI style, Simplified strings. Unlike the others it is a **React SPA** whose HTML is an empty shell, so everything is parsed from its REST JSON API (`/api/v1/...`). See "AV01 notes".
-- Tests: `node test/jable.test.js`, `node test/missav.test.js`, `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js`, `node test/av01.test.js` (one file per app). Shared-core additions are covered by both the original app's test (backward compatibility) and the `+` test.
-- Shared-core policy: `missav_core.js` was `?v=4` when only the original used it; MissAV+ consumes it at `?v=5` and the original keeps its `?v=4` literals untouched. So the original may serve a stale cached core to existing installs (no regression) while MissAV+ always gets the new one. Additions must stay backward compatible (`parseDetail` accepts both `(html, url)` and a `{html, url}` page object).
+- Tests (one file per app): `node test/jable_redesign.test.js`, `node test/missav_plus.test.js`, `node test/supjav.test.js`, `node test/av01.test.js`.
+- Versioning per app: a pages-only change bumps that app's `MODULE_VERSION` + subscription `version` + every hardcoded `?v=` of the *pages* URL; touching the core bumps the core `?v=` too (there is no stale-cache escape hatch any more).
 
 ## Critical: version bump
 
@@ -44,7 +44,7 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 - **局部刷新**：`updateItem(id, {title, extra:{id}})` updates one card in place via `extra.id` (id must be globally unique across pages; we use `'fav:'+url`). Siblings: `deleteItem` / `deleteItemByCls` / `addItemAfter` / `addItemBefore` / `findItem` / `findItemsByCls` (help_js.md:864-922; JSEngine.java:1167). Jable+ and MissAV+ favorite toggles use this with a `refreshPage(false)` fallback (`typeof updateItem` guard).
 - **caveat**: pages containing both an `input` and `flex_button`/`scroll_button` must not use dynamic refresh on the flex/scroll items — it global-refreshes and blurs the input (help_js.md:924-926). Detail pages are safe (no input).
 - **confirm** 二次弹窗：`confirm({title, content, confirm: $.toString(fn), cancel: $.toString(fn)})` — the callback strings are isolated like rule callbacks; require the core inside them. Jable+「清除緩存與本地數據」uses it.
-- **showLoading/hideLoading**: NOT yet installed — it belongs in the shared `jable_core.js` webview branch, which would also touch original Jable; only ship it alongside a Jable+ iteration after deciding the shared-core policy (help_js.md:485-491).
+- **showLoading/hideLoading**: NOT installed yet; if added, it belongs in the per-app core's webview branch (e.g. `jable_redesign_core.js`) (help_js.md:485-491).
 - **Page tags**: settings-family routes append `#noRecordHistory##noRefresh#` (no history record, no pull-refresh) — pattern in `jable_redesign_pages.js pageRoute`. `#autoCache#` caches only page 1 for instant reopen — only for low-frequency read-only pages.
 - `fetchCodeByWebView` already runs with `checkJs` (extract only when a marker selector exists) in both cores.
 - **Do not exist** (verified docs+source+two community repos): `updateAll`, `refreshx://`, `lazyConvert`, `setKey` (JS API). Real names: `refreshX5WebView(url)`, `setItem/getItem/clearItem`.
@@ -52,7 +52,7 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 
 ## Jable notes (hard-earned)
 
-- **Search pagination is path-based only**: `/search/<encoded keyword>/<page>/`. `?q=`/`?page=` work for page 1 but ignore page numbers. Build search URLs via `searchUrl`/`searchPagedSource` in `jable_pages.js`; the subscription's `search_url` is `https://jable.tv/search/**/fypage/`.
+- **Search pagination is path-based only**: `/search/<encoded keyword>/<page>/`. `?q=`/`?page=` work for page 1 but ignore page numbers. Build search URLs via `searchUrl`/`searchPagedSource` in `jable_redesign_pages.js`; the subscription's `search_url` is `https://jable.tv/search/**/fypage/`.
 - Other listings paginate as `/xxx/<page>/` (`/hot/2/`, `/models/2/`, `/categories/<slug>/2/`), so `pagedSource()` uses the `fypage` token.
 - Card parse: `pdfa('body&&.video-img-box')` + `pdfh('h6&&Text')`, image from `data-src`, duration from `span.label&&Text`.
 - Detail: `og:title`/`og:image` only; the `meta description` is the site's generic slogan, so `detailDescription()` filters it to `''`. Playable m3u8 is the first `m3u8|mp4` in the HTML (CDN needs no special headers).
@@ -77,9 +77,9 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 
 ## MissAV+ notes
 
-- `docs/apps/missav_plus/missav_plus_pages.js` (see its `MODULE_VERSION`) + shared `missav_core.js?v=5`. UI mirrors Jable+ v10: 7 top tabs (首页/最近更新/新作上市/热门/女优/类型/我的), 玫红 `#E91E63` selection, home sections with `pic_1` first card + `movie_2` two-column, `text_1` clickable section titles with `更多 ›`, detail hero `pic_1_full` → meta chips → play → favorite/原网页 → 演员/类型/系列/发行商/导演/标签 chips → 猜你喜欢. Strings are Simplified (site is Simplified).
+- `docs/apps/missav_plus/missav_plus_pages.js` (see its `MODULE_VERSION`) + `missav_plus_core.js?v=1` (same folder). UI mirrors Jable+ v10: 7 top tabs (首页/最近更新/新作上市/热门/女优/类型/我的), 玫红 `#E91E63` selection, home sections with `pic_1` first card + `movie_2` two-column, `text_1` clickable section titles with `更多 ›`, detail hero `pic_1_full` → meta chips → play → favorite/原网页 → 演员/类型/系列/发行商/导演/标签 chips → 猜你喜欢. Strings are Simplified (site is Simplified).
 - Core additions made for it (backward compatible, both apps' tests cover them): `getList(url, marker, limit)`, `parseTotal`, `listValue`/`setValue`, `addSearch`, `clearLocal`, and a `parseDetail` that accepts a `{html, url}` page object. `getList` treats `limit <= 0` as "all" (the raw `parseCards` slices at 0).
-- State keys are prefixed `msp.` (original MissAV uses `missav.ui.`), so both can be installed side by side.
+- State keys are prefixed `msp.`; favorites/history/search live in the same core.
 - Preview: `node tools/preview_missav.js` → `docs/dev/preview_missav.html` (home/hot/actress/mine tabs + detail).
 
 ## SupJav notes
@@ -128,11 +128,13 @@ Each app's `node test/<app>.test.js` enforces 1–3. Never `requirejs` a module 
 ## Verifying changes
 
 ```
-node test/jable.test.js        # plus missav.test.js, jable_redesign.test.js, missav_plus.test.js, supjav.test.js, av01.test.js
+node test/jable_redesign.test.js   # plus missav_plus.test.js, supjav.test.js, av01.test.js
+node tools/preview_jable.js    # visual preview → docs/dev/preview_jable.html
+node tools/preview_missav.js   # visual preview → docs/dev/preview_missav.html
 node tools/preview_supjav.js   # visual preview → docs/dev/preview_supjav.html
 node tools/preview_av01.js     # visual preview → docs/dev/preview_av01.html
 ```
 
-Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all six before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script, the SupJav HTML pages, and the AV01 API JSON/m3u8 responses) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
+Dependency-free smoke tests: stub Hiker globals, run real code paths (home/list/detail/search/version consistency), one file per app. Run the ones you touched; run all four before a release. Extend the pattern for each new app. Real-page fixtures live in `test/fixtures/` (the MissAV packer script, the SupJav HTML pages, and the AV01 API JSON/m3u8 responses) — prefer storing a genuine fragment over hand-writing markup when the site's minified output matters.
 
 Reference material (read-only clones, never commit here): Hiker API docs at `~/code/developer-reference/Documents/docs/hikerview` (`help_api.md`, `help_js.md`, `help_rules.md`, `help_film_list_rules.md`), community sample rules at `~/code/developer-examples/hikerViewRules` (plaintext ES6 — adapt, don't copy verbatim), and the Android app source at `~/code/developer-reference/hikerView`. After pushing, refresh `docs/subscription.json` in the Hiker app and exercise home → list → detail → playback on-device.
